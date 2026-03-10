@@ -61,6 +61,7 @@ The main script (`main.sh`) automatically detects the current Mac state and runs
 ```
 mac-mdm-migration/
 ├── bin/
+│   ├── config.sh                        # Shared config — change COMPANY_NAME here
 │   ├── main.sh                          # Main orchestrator — only entry point
 │   ├── validate.sh                      # Step 1 — validates Mac state, detects MDM
 │   ├── install_dependencies.sh          # Step 2 — installs swiftDialog
@@ -125,10 +126,10 @@ The `html/whats_new.html` page has slots for screenshots and screen recordings t
 
 ### 1. Set your company name
 
-All scripts have a `COMPANY_NAME` variable at the top. Change it to match your organization:
+`COMPANY_NAME` is defined **once** in `bin/config.sh` and sourced by all scripts. Change it there only:
 
 ```bash
-readonly COMPANY_NAME="ACME"   # <── change this in every script
+readonly COMPANY_NAME="ACME"   # <── change this once
 ```
 
 This controls the base directory:

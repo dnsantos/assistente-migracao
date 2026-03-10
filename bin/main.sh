@@ -1,21 +1,18 @@
 #!/bin/bash
+set -euo pipefail
 
 ###############################################################################
 # main.sh
 # Orchestrates the full MDM migration process: Intune → Jamf Pro
 #
-# Version: 1.1
-#
-# Description:
-#   Main orchestrator script. Starts in text mode and loads the visual
-#   interface after installing swiftDialog in Step 2.
+# Version: 1.2
 #
 # Flow:
-#   1. Validation (no Dialog)
-#   2. Install Dependencies → installs swiftDialog
-#   3. Remove Intune (with Dialog)
-#   4. Enroll in Jamf (with Dialog)
-#   5. Post-migration cleanup (with Dialog)
+#   1. Validation        (text mode)
+#   2. Install Dependencies → loads swiftDialog
+#   3. Remove Intune     (with Dialog)
+#   4. Enroll in Jamf    (with Dialog)
+#   5. Post-migration    (with Dialog)
 #
 # Exit Codes:
 #   0 - Success
@@ -23,221 +20,100 @@
 #   2 - Dependency installation failure
 #   3 - Intune removal failure
 #   4 - Jamf enrollment failure
-#
-# Configuration:
-#   Edit BASE_DIR and COMPANY_NAME to match your environment.
 ###############################################################################
 
-# ── CONFIGURATION ─────────────────────────────────────────────────────────────
-readonly COMPANY_NAME="ACME"                                          # <── change this
-readonly BASE_DIR="/Library/Application Support/${COMPANY_NAME} MDM Migration"
-# ──────────────────────────────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config.sh"
 
-readonly BIN_DIR="${BASE_DIR}/bin"
-readonly LOGS_DIR="${BASE_DIR}/logs"
-readonly MAIN_LOG="${LOGS_DIR}/migration.log"
-readonly DIALOG_BIN="/usr/local/bin/dialog"
-readonly DIALOG_LOG="/var/tmp/dialog_migration.log"
-readonly JSON_TEMPLATE="${BASE_DIR}/resources/config"
-readonly STATE_FILE="${BASE_DIR}/migration_state.json"
+require_root
 
 DIALOG_AVAILABLE=false
-JQ_BIN=""
-
-if [[ ! -d "${LOGS_DIR}" ]]; then
-    mkdir -p "${LOGS_DIR}"
-fi
 
 ###############################################################################
-# FUNCTION: Logging
+# HELPERS
 ###############################################################################
-log_message() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] $1" | tee -a "${MAIN_LOG}"
+check_dialog() {
+    if [[ -f "${DIALOG_BIN}" ]]; then
+        DIALOG_AVAILABLE=true
+        return 0
+    fi
+    DIALOG_AVAILABLE=false
+    return 1
 }
 
-###############################################################################
-# FUNCTION: Update JSON state file
-###############################################################################
-update_state_with_jq() {
-    local key="$1"
-    local value="$2"
+update_list_item() {
+    local index="$1" status="$2" statustext="$3"
+    send_dialog "listitem: index: ${index}, status: ${status}, statustext: ${statustext}"
+}
 
-    if [[ -z "${JQ_BIN}" ]] || [[ ! -f "${JQ_BIN}" ]]; then
-        log_message "⚠ JQ not found, cannot update state: ${key}=${value}"
-        return 1
-    fi
+start_migration_dialog() {
+    [[ "$DIALOG_AVAILABLE" != true ]] && return 0
+    rm -f "${DIALOG_LOG}"
 
-    if [[ ! -f "${STATE_FILE}" ]]; then
-        echo "{}" >"${STATE_FILE}"
-    fi
+    local machine_name serial
+    machine_name=$(scutil --get ComputerName 2>/dev/null || hostname)
+    serial=$(system_profiler SPHardwareDataType | awk '/Serial/ {print $4}')
 
-    local temp_file="${STATE_FILE}.tmp"
-    "${JQ_BIN}" --arg key "$key" --arg value "$value" '.[$key] = $value' "${STATE_FILE}" >"${temp_file}" 2>/dev/null
+    "${DIALOG_BIN}" \
+        --title "${COMPANY_NAME} MDM Migration" \
+        --message "### Intune → Jamf Pro Migration<br><br>**Computer:** ${machine_name}<br>**Serial:** ${serial}<br><br>Track the migration progress below. You can continue using your Mac normally." \
+        --messagefont "size=13" \
+        --button1text "none" \
+        --width 750 --height 550 \
+        --position "center" --ontop --moveable \
+        --jsonfile "${BASE_DIR}/resources/config/dialog_list.json" \
+        --commandfile "${DIALOG_LOG}" &
 
-    if [[ -f "${temp_file}" ]] && [[ -s "${temp_file}" ]]; then
-        mv "${temp_file}" "${STATE_FILE}"
-        return 0
+    sleep 2
+    log_message "✓ Visual interface started"
+}
+
+finish_migration_dialog() {
+    local success="$1" message="$2"
+    [[ "$DIALOG_AVAILABLE" != true ]] || [[ ! -f "${DIALOG_LOG}" ]] && return 0
+
+    if [[ $success -eq 0 ]]; then
+        send_dialog "icon: SF=checkmark.circle.fill,color=green"
+        send_dialog "message: ### ✅ Migration Complete!\n\n${message}\n\nThe Mac has been successfully migrated from Intune to Jamf Pro."
+        send_dialog "button1text: Done"
     else
-        log_message "✗ Failed to update JSON state: ${key}=${value}"
-        rm -f "${temp_file}" 2>/dev/null
-        return 1
+        send_dialog "icon: SF=xmark.circle.fill,color=red"
+        send_dialog "message: ### ✗ Migration Failed\n\n${message}\n\nCheck the logs for details."
+        send_dialog "button1text: Close"
     fi
+
+    sleep 5
+    send_dialog "quit:"
+    rm -f "${DIALOG_LOG}"
 }
 
 ###############################################################################
 # INITIALIZATION
 ###############################################################################
 log_message "========================================="
-log_message "${COMPANY_NAME} MDM MIGRATION ASSISTANT"
+log_message "${COMPANY_NAME} MDM MIGRATION"
 log_message "Intune → Jamf Pro"
 log_message "========================================="
 
-if [[ $EUID -ne 0 ]]; then
-    log_message "✗ This script must be run as root"
-    exit 1
-fi
-
-log_message "✓ Running as root"
-
-###############################################################################
-# FUNCTION: Detect architecture and set up jq
-###############################################################################
-detect_and_setup_jq() {
-    local arch=$(uname -m)
-    log_message "Detecting architecture: ${arch}"
-
-    if [[ "$arch" == "arm64" ]]; then
-        JQ_BIN="${BIN_DIR}/jq-macos-arm64"
-    elif [[ "$arch" == "x86_64" ]]; then
-        JQ_BIN="${BIN_DIR}/jq-macos-amd64"
-    else
-        log_message "⚠ Unsupported architecture: ${arch}"
-        return 1
-    fi
-
-    if [[ -f "${JQ_BIN}" ]]; then
-        chmod +x "${JQ_BIN}" 2>/dev/null || true
-        export JQ_BIN
-        log_message "✓ jq configured: ${JQ_BIN}"
-        return 0
-    else
-        log_message "⚠ jq binary not found: ${JQ_BIN}"
-        return 1
-    fi
-}
-
-###############################################################################
-# FUNCTION: Check if swiftDialog is available
-###############################################################################
-check_dialog() {
-    if [[ -f "${DIALOG_BIN}" ]]; then
-        DIALOG_AVAILABLE=true
-        log_message "✓ swiftDialog available"
-        return 0
-    else
-        DIALOG_AVAILABLE=false
-        log_message "⚠ swiftDialog not yet available"
-        return 1
-    fi
-}
-
-###############################################################################
-# FUNCTION: Launch swiftDialog with progress list
-###############################################################################
-start_migration_dialog() {
-    if [[ "$DIALOG_AVAILABLE" != true ]]; then
-        log_message "⚠ Dialog not available — skipping visual interface"
-        return 1
-    fi
-
-    rm -f "${DIALOG_LOG}"
-    log_message "Starting visual interface..."
-
-    local machine_name=$(scutil --get ComputerName 2>/dev/null || hostname)
-    local serial_number=$(system_profiler SPHardwareDataType | awk '/Serial/ {print $4}')
-
-    "${DIALOG_BIN}" \
-        --title "${COMPANY_NAME} MDM Migration" \
-        --message "### Intune → Jamf Pro Migration<br><br>**Computer:** ${machine_name}<br>**Serial:** ${serial_number}<br><br>Track the migration progress below. You can continue using your Mac normally." \
-        --messagefont "size=13" \
-        --button1text "none" \
-        --width 750 \
-        --height 550 \
-        --position "center" \
-        --ontop \
-        --moveable \
-        --jsonfile "$JSON_TEMPLATE/dialog_list.json" \
-        --commandfile "${DIALOG_LOG}" &
-
-    sleep 2
-    log_message "✓ Visual interface started"
-    return 0
-}
-
-###############################################################################
-# FUNCTION: Update list item in swiftDialog
-###############################################################################
-update_list_item() {
-    local index="$1"
-    local status="$2"   # wait, success, fail, error, pending
-    local statustext="$3"
-
-    if [[ "$DIALOG_AVAILABLE" == true ]] && [[ -f "${DIALOG_LOG}" ]]; then
-        echo "listitem: index: ${index}, status: ${status}, statustext: ${statustext}" >>"${DIALOG_LOG}"
-    fi
-}
-
-###############################################################################
-# FUNCTION: Finalize swiftDialog
-###############################################################################
-finish_migration_dialog() {
-    local success="$1"
-    local message="$2"
-
-    if [[ "$DIALOG_AVAILABLE" != true ]] || [[ ! -f "${DIALOG_LOG}" ]]; then
-        return 0
-    fi
-
-    if [[ $success -eq 0 ]]; then
-        echo "icon: SF=checkmark.circle.fill,color=green" >>"${DIALOG_LOG}"
-        echo "message: ### ✅ Migration Complete!\n\n${message}\n\nThe Mac has been successfully migrated from Intune to Jamf Pro." >>"${DIALOG_LOG}"
-        echo "button1text: Done" >>"${DIALOG_LOG}"
-    else
-        echo "icon: SF=xmark.circle.fill,color=red" >>"${DIALOG_LOG}"
-        echo "message: ### ✗ Migration Failed\n\n${message}\n\nCheck the logs for details." >>"${DIALOG_LOG}"
-        echo "button1text: Close" >>"${DIALOG_LOG}"
-    fi
-
-    sleep 5
-    echo "quit:" >>"${DIALOG_LOG}"
-    rm -f "${DIALOG_LOG}"
-}
-
-###############################################################################
-# Initial setup
-###############################################################################
-detect_and_setup_jq
+detect_jq || true
 check_dialog
 
 if [[ "$DIALOG_AVAILABLE" == true ]]; then
-    log_message "✓ swiftDialog available — launching visual interface"
-    "$DIALOG_BIN" \
+    log_message "✓ swiftDialog available — showing intro dialog"
+    "${DIALOG_BIN}" \
         --title "${COMPANY_NAME} MDM Migration" \
         --messagefont "size=13" \
         --message "Your Mac is about to be migrated to a new management platform.<br><br>This process is **automatic** and takes approximately **15–30 minutes**.<br><br>You can continue using your Mac normally during the migration." \
         --button1text "Start Migration" \
         --infobuttontext "Learn more" \
-        --infobuttonaction "file://$BASE_DIR/html/index.html" \
+        --infobuttonaction "file://${BASE_DIR}/html/index.html" \
         --hidedefaultkeyboardaction
 
     start_migration_dialog
     sleep 2
 else
-    log_message "========================================="
     log_message "TEXT MODE — visual interface will load after dependencies are installed"
-    log_message "Follow progress in logs: ${MAIN_LOG}"
-    log_message "========================================="
+    log_message "Follow progress in: ${MAIN_LOG}"
 fi
 
 ###############################################################################
@@ -255,55 +131,38 @@ if [[ ! -f "${BIN_DIR}/validate.sh" ]]; then
     exit 1
 fi
 
+set +e
 "${BIN_DIR}/validate.sh"
 VALIDATION_RESULT=$?
+set -e
 
 if [[ $VALIDATION_RESULT -eq 0 ]]; then
-    log_message "Mac is already in Jamf — no action needed"
+    log_message "Mac is already in Jamf — running post-migration only"
     update_list_item 0 "success" "Mac already in Jamf"
     update_list_item 1 "success" "Not required"
     update_list_item 2 "success" "Not required"
     update_list_item 3 "success" "Not required"
 
-    log_message ""
     log_message "Step 5/5: Finalizing..."
     update_list_item 4 "wait" "Running post-migration tasks..."
-
-    if [[ -f "${BIN_DIR}/post_migration.sh" ]]; then
-        "${BIN_DIR}/post_migration.sh"
-        log_message "✓ Post-migration complete"
-        update_list_item 4 "success" "Done"
-    else
-        update_list_item 4 "success" "Not required"
-    fi
-
+    [[ -f "${BIN_DIR}/post_migration.sh" ]] && "${BIN_DIR}/post_migration.sh"
+    update_list_item 4 "success" "Done"
     finish_migration_dialog 0 "This Mac is already correctly configured in Jamf Pro."
     "${BIN_DIR}/notify_teams.sh" "completed" &
     exit 0
 
 elif [[ $VALIDATION_RESULT -eq 10 ]]; then
-    log_message "✓ Validation complete — Mac is on Intune"
+    log_message "✓ Validation — Mac is on Intune"
     update_list_item 0 "success" "Mac found on Intune"
 
 elif [[ $VALIDATION_RESULT -eq 20 ]]; then
-    log_message "✓ Validation complete — No MDM, will enroll directly in Jamf"
+    log_message "✓ Validation — No MDM, will enroll directly in Jamf"
     update_list_item 0 "success" "No MDM — enrolling in Jamf"
-
-    log_message ""
-    log_message "Step 2/5: Dependencies..."
     update_list_item 1 "success" "Not required"
-
-    log_message ""
-    log_message "Step 3/5: Cleaning residual Microsoft certificates..."
     update_list_item 2 "wait" "Removing Microsoft certificates..."
-
     if [[ -f "${BIN_DIR}/clean_certificates.sh" ]]; then
-        "${BIN_DIR}/clean_certificates.sh"
-        if [[ $? -eq 0 ]]; then
-            update_list_item 2 "success" "Certificates removed"
-        else
-            update_list_item 2 "success" "Checked (with warnings)"
-        fi
+        "${BIN_DIR}/clean_certificates.sh" && update_list_item 2 "success" "Certificates removed" \
+            || update_list_item 2 "success" "Checked (with warnings)"
     else
         update_list_item 2 "success" "Not available"
     fi
@@ -311,19 +170,15 @@ elif [[ $VALIDATION_RESULT -eq 20 ]]; then
 else
     log_message "✗ Validation failed (code: ${VALIDATION_RESULT})"
     update_list_item 0 "fail" "Validation failed"
-
-    local error_message="Error during validation.\n\nCheck the logs for details."
-    if [[ $VALIDATION_RESULT -eq 1 ]]; then
-        error_message="Mac is managed by an unknown MDM.\n\nThis tool only supports Intune or unmanaged Macs."
-    fi
-
-    finish_migration_dialog 1 "${error_message}"
-    "${BIN_DIR}/notify_teams.sh" "failure" "${error_message}" &
+    local_msg="Error during validation. Check the logs for details."
+    [[ $VALIDATION_RESULT -eq 1 ]] && local_msg="Mac is managed by an unknown MDM. This tool only supports Intune or unmanaged Macs."
+    finish_migration_dialog 1 "${local_msg}"
+    "${BIN_DIR}/notify_teams.sh" "failure" "${local_msg}" &
     exit 1
 fi
 
 ###############################################################################
-# STEP 2: DEPENDENCIES (only if not exit 20)
+# STEP 2: DEPENDENCIES
 ###############################################################################
 if [[ $VALIDATION_RESULT -ne 20 ]]; then
     log_message ""
@@ -331,14 +186,19 @@ if [[ $VALIDATION_RESULT -ne 20 ]]; then
     update_list_item 1 "wait" "Installing swiftDialog..."
 
     if [[ -f "${BIN_DIR}/install_dependencies.sh" ]]; then
+        set +e
         "${BIN_DIR}/install_dependencies.sh"
-        if [[ $? -ne 0 ]]; then
+        DEP_RESULT=$?
+        set -e
+
+        if [[ $DEP_RESULT -ne 0 ]]; then
             log_message "✗ Failed to install dependencies"
             update_list_item 1 "fail" "Installation failed"
             finish_migration_dialog 1 "Failed to install required dependencies"
             "${BIN_DIR}/notify_teams.sh" "failure" "Failed to install required dependencies" &
             exit 2
         fi
+
         log_message "✓ Dependencies installed"
         update_list_item 1 "success" "Dependencies installed"
 
@@ -352,7 +212,7 @@ if [[ $VALIDATION_RESULT -ne 20 ]]; then
             fi
         fi
     else
-        log_message "⚠ Dependency script not found (skipping)"
+        log_message "⚠ install_dependencies.sh not found (skipping)"
         update_list_item 1 "success" "Not required"
     fi
 fi
@@ -366,24 +226,24 @@ if [[ $VALIDATION_RESULT -eq 10 ]]; then
     update_list_item 2 "wait" "Connecting to Intune..."
 
     if [[ -f "${BIN_DIR}/remove_intune.sh" ]]; then
+        set +e
         "${BIN_DIR}/remove_intune.sh"
-        if [[ $? -ne 0 ]]; then
+        REMOVE_RESULT=$?
+        set -e
+
+        if [[ $REMOVE_RESULT -ne 0 ]]; then
             log_message "✗ Failed to remove Intune"
             update_list_item 2 "fail" "Failed to remove Intune"
             finish_migration_dialog 1 "Could not remove Intune management"
             "${BIN_DIR}/notify_teams.sh" "failure" "Could not remove Intune management" &
             exit 3
         fi
-        log_message "✓ Intune removed successfully"
 
         update_list_item 2 "wait" "Removing Microsoft certificates..."
-        if [[ -f "${BIN_DIR}/clean_certificates.sh" ]]; then
-            "${BIN_DIR}/clean_certificates.sh"
-            log_message "✓ Microsoft certificates removed"
-        fi
+        [[ -f "${BIN_DIR}/clean_certificates.sh" ]] && "${BIN_DIR}/clean_certificates.sh" || true
         update_list_item 2 "success" "Intune removed successfully"
     else
-        log_message "✗ Script remove_intune.sh not found"
+        log_message "✗ remove_intune.sh not found"
         update_list_item 2 "error" "Script not found"
         finish_migration_dialog 1 "Intune removal script not found"
         "${BIN_DIR}/notify_teams.sh" "failure" "Intune removal script not found" &
@@ -394,10 +254,8 @@ elif [[ $VALIDATION_RESULT -eq 20 ]]; then
     log_message ""
     log_message "Step 3/5: Cleaning residual Microsoft certificates..."
     update_list_item 2 "wait" "Removing Microsoft certificates..."
-
     if [[ -f "${BIN_DIR}/clean_certificates.sh" ]]; then
-        "${BIN_DIR}/clean_certificates.sh"
-        update_list_item 2 "success" "Certificates removed"
+        "${BIN_DIR}/clean_certificates.sh" && update_list_item 2 "success" "Certificates removed" || true
     else
         update_list_item 2 "success" "Not available"
     fi
@@ -411,18 +269,21 @@ log_message "Step 4/5: Enrolling in Jamf Pro..."
 update_list_item 3 "wait" "Preparing Jamf enrollment..."
 
 if [[ -f "${BIN_DIR}/install_jamf.sh" ]]; then
+    set +e
     "${BIN_DIR}/install_jamf.sh"
-    if [[ $? -ne 0 ]]; then
+    JAMF_RESULT=$?
+    set -e
+
+    if [[ $JAMF_RESULT -ne 0 ]]; then
         log_message "✗ Failed to enroll in Jamf"
         update_list_item 3 "fail" "Jamf enrollment failed"
         finish_migration_dialog 1 "Could not enroll the Mac in Jamf Pro"
         "${BIN_DIR}/notify_teams.sh" "failure" "Could not enroll the Mac in Jamf Pro" &
         exit 4
     fi
-    log_message "✓ Jamf enrollment successful"
     update_list_item 3 "success" "Jamf enrollment successful"
 else
-    log_message "✗ Script install_jamf.sh not found"
+    log_message "✗ install_jamf.sh not found"
     update_list_item 3 "error" "Script not found"
     finish_migration_dialog 1 "Jamf enrollment script not found"
     "${BIN_DIR}/notify_teams.sh" "failure" "Jamf enrollment script not found" &
@@ -438,7 +299,6 @@ update_list_item 4 "wait" "Running final cleanup..."
 
 if [[ -f "${BIN_DIR}/post_migration.sh" ]]; then
     "${BIN_DIR}/post_migration.sh"
-    log_message "✓ Post-migration complete"
     update_list_item 4 "success" "Done"
 else
     log_message "⚠ post_migration.sh not found (skipping)"
