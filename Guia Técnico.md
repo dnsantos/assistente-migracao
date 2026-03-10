@@ -19,6 +19,7 @@
 9. [Logs](#logs)
 10. [swiftDialog Command Pipe](#swiftdialog-command-pipe)
 11. [Troubleshooting](#troubleshooting)
+12. [Packaging — Building the PKG with Jamf Composer](#packaging--building-the-pkg-with-jamf-composer)
 
 ---
 
@@ -375,3 +376,160 @@ echo "quit:" >> /var/tmp/dialog_migration.log
 **Symptom:** The banner `MDM MIGRATION ASSISTANT` and `Step 1/5` repeat hundreds of times within the same second  
 **Cause:** The main script is being called recursively (e.g., sourced instead of executed, or a `while` loop without `exec`)  
 **Fix:** Ensure `migracao_principal.sh` is called with `bash /path/to/migracao_principal.sh` and **not** sourced with `.` or `source`
+
+---
+
+## Packaging — Building the PKG with Jamf Composer
+
+The migration tool is distributed as a macOS **PKG** built with **Jamf Composer**. The PKG bundles all scripts, binaries, HTML portal, config files, the LaunchDaemon plist, and two installer scripts.
+
+### PKG contents overview
+
+```
+PKG payload  →  files copied to the Mac filesystem
+PKG scripts  →  run automatically by the installer
+```
+
+#### Payload (files installed on the Mac)
+
+| Source path (in Composer) | Destination on Mac |
+|---|---|
+| `bin/` (all scripts + jq binaries) | `/Library/Application Support/ACME MDM Migration/bin/` |
+| `html/` | `/Library/Application Support/ACME MDM Migration/html/` |
+| `resources/` | `/Library/Application Support/ACME MDM Migration/resources/` |
+| `com.acme.mdm-migration.plist` | `/Library/LaunchDaemons/com.acme.mdm-migration.plist` |
+
+> The `logs/` directory and `migration_state.json` are created at runtime — do not include them in the PKG.
+
+#### Scripts (run by the installer, not installed on the Mac)
+
+| Script | When it runs | Purpose |
+|---|---|---|
+| `postinstall` | Immediately after files are copied | Injects the secret into keychain, sets permissions, loads the LaunchDaemon |
+| `limpeza_final.sh` | Called async by `pos_migracao.sh` after migration completes | Unloads and removes the LaunchDaemon + migration folder |
+
+> `limpeza_final.sh` is **not** a standard PKG script. It is copied into `/private/tmp/` as part of the payload and executed at the end of the migration flow by `pos_migracao.sh` via `nohup`.
+
+---
+
+### Step-by-step: building with Jamf Composer
+
+#### 1. Prepare the secret
+
+Open `pkg/scripts/postinstall` and replace `REPLACE_ME` with the real Intune `client_secret`:
+
+```bash
+readonly INTUNE_SECRET="your-actual-secret-here"
+```
+
+> ⚠️ **Never commit the real secret to the repository.** Keep the placeholder (`REPLACE_ME`) in version control and substitute before each build.
+
+Also verify that `SERVICE_NAME`, `ACCOUNT_NAME`, and `PLIST_LABEL` in `postinstall` match the values in `remover_intune.sh` and the plist file.
+
+#### 2. Open Jamf Composer and create a new PKG
+
+- Open **Jamf Composer**
+- Choose **New Package → Files & Folders** (not Snapshots)
+
+#### 3. Add the payload files
+
+Drag the following into Composer, placing them at the correct destination paths:
+
+| What to drag | Destination in Composer |
+|---|---|
+| `bin/` folder | `/Library/Application Support/ACME MDM Migration/bin/` |
+| `html/` folder | `/Library/Application Support/ACME MDM Migration/html/` |
+| `resources/` folder | `/Library/Application Support/ACME MDM Migration/resources/` |
+| `resources/launchdaemon/com.acme.mdm-migration.plist` | `/Library/LaunchDaemons/` |
+| `pkg/scripts/limpeza_final.sh` | `/private/tmp/limpeza_final.sh` |
+
+#### 4. Add the Scripts
+
+In Composer, open the **Scripts** tab and add:
+
+- **Post-install script:** paste the contents of `pkg/scripts/postinstall`
+
+#### 5. Set permissions in Composer
+
+Select files in Composer and set ownership:
+
+| File / folder | Owner | Group | Permissions |
+|---|---|---|---|
+| `bin/*.sh` | root | wheel | `755` |
+| `bin/jq-macos-*` | root | wheel | `755` |
+| `html/`, `resources/` | root | wheel | `755` (dirs) / `644` (files) |
+| `com.acme.mdm-migration.plist` | root | wheel | `644` |
+| `/private/tmp/limpeza_final.sh` | root | wheel | `755` |
+
+> The `postinstall` script also sets permissions at runtime as a safety net, but setting them in Composer is best practice.
+
+#### 6. Build and export
+
+- Click **Build as PKG**
+- Save the PKG (e.g. `acme-mdm-migration-1.1.pkg`)
+- Do **not** use the "Build as DMG" option
+
+#### 7. Deploy via Jamf Pro
+
+- Upload the PKG to **Jamf Pro → Settings → Packages**
+- Create a **Policy** scoped to the target Macs:
+  - Trigger: **Recurring Check-in** or **Custom event**
+  - Frequency: **Once per computer**
+  - Package: select your PKG, action **Install**
+- No other configuration is needed — the LaunchDaemon starts the migration automatically after installation
+
+---
+
+### How the full flow works after deployment
+
+```
+Jamf Policy runs on target Mac
+        │
+        ▼
+PKG installer copies files to filesystem
+        │
+        ▼
+postinstall runs:
+  1. Writes client_secret → System Keychain
+  2. Sets file permissions
+  3. launchctl bootstrap → loads LaunchDaemon
+        │
+        ▼
+LaunchDaemon fires migracao_principal.sh as root
+  (RunAtLoad = true, UserName = root)
+        │
+        ▼
+Migration runs (Steps 1–5)
+        │
+        ▼
+pos_migracao.sh triggers limpeza_final.sh via nohup
+        │
+        ▼
+limpeza_final.sh (after 10s sleep):
+  1. launchctl bootout → unloads LaunchDaemon
+  2. Deletes plist from /Library/LaunchDaemons/
+  3. Deletes /Library/Application Support/ACME MDM Migration/
+```
+
+---
+
+### Updating the secret (secret rotation)
+
+When the Intune `client_secret` expires:
+
+1. Generate a new secret in Azure AD → App Registrations → your app → Certificates & secrets
+2. Update `INTUNE_SECRET` in `pkg/scripts/postinstall`
+3. Rebuild the PKG in Composer
+4. Upload the new PKG to Jamf Pro and re-scope the policy
+
+> The `postinstall` runs a **preventive delete** before writing, so re-running the PKG on a Mac that already has an old secret will cleanly replace it.
+
+---
+
+### Files reference
+
+| File | Path in repo | Purpose |
+|---|---|---|
+| LaunchDaemon plist | `resources/launchdaemon/com.acme.mdm-migration.plist` | Starts migration as root on load |
+| postinstall script | `pkg/scripts/postinstall` | Keychain injection + permissions + daemon load |
+| Cleanup script | `pkg/scripts/limpeza_final.sh` | Self-destruct after migration completes |

@@ -75,12 +75,18 @@ mac-mdm-migration/
 │   ├── index.html                   # User-facing portal — welcome page
 │   ├── novidades.html               # What's changing
 │   ├── beneficios.html              # Migration benefits
-│   ├── faq.html                     # Frequently asked questions
-│   └── css/app.css
-└── resources/
-    └── config/
-        ├── migration_config.json    # Credentials and configuration  ← edit this
-        └── dialog_list.json         # swiftDialog progress list structure
+│   └── faq.html                     # Frequently asked questions
+├── resources/
+│   └── config/
+│       ├── migration_config.json    # Credentials and configuration  ← edit this
+│       ├── dialog_list.json         # swiftDialog progress list structure
+│       └── com.acme.mdm.migration.plist  # LaunchDaemon — starts migration on install
+├── pkg/
+│   ├── postinstall                  # PKG post-install script: keychain + permissions + daemon
+│   └── limpeza_final.sh             # Self-destruct: removes all artifacts after migration
+└── docs/
+    ├── TECHNICAL_GUIDE.md           # Full technical reference for IT admins
+    └── USER_GUIDE.md                # End-user guide
 ```
 
 ---
@@ -229,6 +235,20 @@ Possible `migration_status` values:
 | `jamf_enrolled` | Enrolled in Jamf successfully |
 | `completed` | Post-migration finalized |
 | `unknown_mdm` | Unrecognized MDM — manual action required |
+
+---
+
+## Packaging
+
+The tool is distributed as a macOS **PKG** built with **Jamf Composer**. The PKG installs all files, injects the Intune `client_secret` into the System Keychain, and automatically starts the migration via a LaunchDaemon.
+
+| File | Role |
+|---|---|
+| `resources/com.acme.mdm.migration.plist` | LaunchDaemon — starts `migracao_principal.sh` as root on install |
+| `pkg/postinstall` | PKG post-install script — sets permissions, writes secret to keychain, loads daemon |
+| `pkg/limpeza_final.sh` | Self-destruct — removes the LaunchDaemon and migration folder after the process completes |
+
+> For the full step-by-step build and deploy instructions, see the [Technical Guide — Packaging section](docs/TECHNICAL_GUIDE.md#packaging--building-the-pkg-with-jamf-composer).
 
 ---
 
