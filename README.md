@@ -1,199 +1,260 @@
-# Assistente de Migração Globo
+# mac-mdm-migration
 
-> Migração automatizada de Macs corporativos do **Microsoft Intune** para o **Jamf Pro**
+> Automated migration tool for corporate Macs from **Microsoft Intune** to **Jamf Pro**
 
-![macOS](https://img.shields.io/badge/macOS-11%2B-blue?logo=apple) ![Shell](https://img.shields.io/badge/Shell-Bash-green?logo=gnubash) ![Versão](https://img.shields.io/badge/versão-1.1-lightgrey) ![Equipe](https://img.shields.io/badge/equipe-Modern%20Workplace%20Globo-blue)
-
----
-
-## Sumário
-
-- [Visão Geral](#visão-geral)
-- [Cenários Suportados](#cenários-suportados)
-- [Pré-requisitos](#pré-requisitos)
-- [Estrutura do Projeto](#estrutura-do-projeto)
-- [Configuração](#configuração)
-- [Como Executar](#como-executar)
-- [Fluxo de Execução](#fluxo-de-execução)
-- [Documentação](#documentação)
-- [Dependências](#dependências)
+![macOS](https://img.shields.io/badge/macOS-11%2B-blue?logo=apple) ![Shell](https://img.shields.io/badge/Shell-Bash-green?logo=gnubash) ![Version](https://img.shields.io/badge/version-1.1-lightgrey) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 
-## Visão Geral
+## Table of Contents
 
-O **Assistente de Migração Globo** é um conjunto de scripts Bash que orquestra a migração completa de Macs corporativos do Microsoft Intune para o Jamf Pro. O processo é totalmente automatizado, com interface visual via [swiftDialog](https://github.com/swiftDialog/swiftDialog) e notificações em tempo real para um canal do **Microsoft Teams**.
-
-O script principal (`migracao_principal.sh`) detecta automaticamente o estado do Mac e executa apenas os passos necessários, sem intervenção manual.
+- [Overview](#overview)
+- [Supported Scenarios](#supported-scenarios)
+- [Prerequisites](#prerequisites)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [How to Run](#how-to-run)
+- [Execution Flow](#execution-flow)
+- [Customization](#customization)
+- [Documentation](#documentation)
+- [Dependencies](#dependencies)
 
 ---
 
-## Cenários Suportados
+## Overview
 
-| Estado do Mac | Ação executada | Código de saída |
+**mac-mdm-migration** is a set of Bash scripts that orchestrates the full migration of corporate Macs from Microsoft Intune to Jamf Pro. The process is fully automated, with a visual progress interface via [swiftDialog](https://github.com/swiftDialog/swiftDialog) and real-time notifications to a **Microsoft Teams** channel.
+
+The main script (`migracao_principal.sh`) automatically detects the current Mac state and runs only the steps required — no manual intervention needed.
+
+---
+
+## Supported Scenarios
+
+| Mac State | Action | Exit Code |
 |---|---|---|
-| Já está no Jamf Pro | Executa pós-migração e encerra | `0` |
-| Gerenciado pelo Intune | Fluxo completo: remove Intune → enrola no Jamf | `exit 10` (validação) |
-| Sem MDM ativo | Limpa certificados MS residuais → enrola no Jamf | `exit 20` (validação) |
-| MDM desconhecido | Aborta — requer intervenção manual | `1` |
+| Already enrolled in Jamf Pro | Runs post-migration cleanup and exits | `0` |
+| Managed by Intune | Full flow: removes Intune → enrolls in Jamf | `10` (validation) |
+| No MDM active | Cleans residual MS certificates → enrolls in Jamf | `20` (validation) |
+| Unknown MDM | Aborts — requires manual intervention | `1` |
 
 ---
 
-## Pré-requisitos
+## Prerequisites
 
-- macOS 11 (Big Sur) ou superior
-- Execução como **root** (via Jamf Policy, ARD ou similar)
-- Mac registrado no **Apple Business Manager (ABM)**
-- Mac atribuído a um **PreStage de Enrollment** no Jamf Pro
-- **App Registration** no Azure AD com permissão `DeviceManagementManagedDevices.ReadWrite.All`
-- `client_secret` provisionado no System Keychain antes da execução
-- Conectividade com:
+- macOS 11 (Big Sur) or later
+- Must run as **root** (via Jamf Policy, ARD, or similar)
+- Mac registered in **Apple Business Manager (ABM)**
+- Mac assigned to a **Jamf PreStage Enrollment**
+- **Azure AD App Registration** with `DeviceManagementManagedDevices.ReadWrite.All` permission
+- `client_secret` provisioned in the System Keychain before execution (see [Configuration](#configuration))
+- Network access to:
   - `login.microsoftonline.com`
   - `graph.microsoft.com`
   - `api.github.com`
-  - Servidor MDM do Jamf Pro
+  - Your Jamf Pro MDM server
 
 ---
 
-## Estrutura do Projeto
+## Project Structure
 
 ```
-assistente-migracao/
+mac-mdm-migration/
 ├── bin/
-│   ├── migracao_principal.sh        # Orquestrador — único ponto de entrada
-│   ├── validacao_pre_migracao.sh    # Passo 1 — valida estado e detecta MDM
-│   ├── instalar_dependencias.sh     # Passo 2 — instala swiftDialog
-│   ├── remover_intune.sh            # Passo 3 — remove dispositivo via Graph API
-│   ├── limpar_certificados_ms.sh    # Passo 3b — remove MS-ORGANIZATION-ACCESS
-│   ├── instalar_jamf.sh             # Passo 4 — enrollment no Jamf via ABM
-│   ├── pos_migracao.sh              # Passo 5 — recon, limpeza e logs
-│   ├── notificar_teams.sh           # Envia Adaptive Cards ao Teams
-│   ├── jq-macos-arm64               # Binário jq para Apple Silicon
-│   └── jq-macos-amd64               # Binário jq para Intel
+│   ├── migracao_principal.sh        # Main orchestrator — only entry point
+│   ├── validacao_pre_migracao.sh    # Step 1 — validates Mac state, detects MDM
+│   ├── instalar_dependencias.sh     # Step 2 — installs swiftDialog
+│   ├── remover_intune.sh            # Step 3 — removes device via Graph API
+│   ├── limpar_certificados_ms.sh    # Step 3b — removes MS-ORGANIZATION-ACCESS cert
+│   ├── instalar_jamf.sh             # Step 4 — enrolls Mac via ABM PreStage
+│   ├── pos_migracao.sh              # Step 5 — recon, cleanup, log rotation
+│   ├── notificar_teams.sh           # Sends Adaptive Cards to Teams webhook
+│   ├── jq-macos-arm64               # jq binary for Apple Silicon
+│   └── jq-macos-amd64               # jq binary for Intel
 ├── html/
-│   ├── index.html                   # Portal informativo — boas-vindas
-│   ├── novidades.html               # O que vai mudar
-│   ├── beneficios.html              # Benefícios da migração
-│   ├── faq.html                     # Perguntas frequentes
-│   └── css/app-globo.css
+│   ├── index.html                   # User-facing portal — welcome page
+│   ├── novidades.html               # What's changing
+│   ├── beneficios.html              # Migration benefits
+│   ├── faq.html                     # Frequently asked questions
+│   └── css/app.css
 └── resources/
     └── config/
-        ├── migration_config.json    # Credenciais e configurações
-        └── dialog_list.json         # Estrutura da lista do swiftDialog
+        ├── migration_config.json    # Credentials and configuration  ← edit this
+        └── dialog_list.json         # swiftDialog progress list structure
 ```
 
 ---
 
-## Configuração
+## Configuration
 
-### 1. Edite o arquivo de configuração
+### 1. Set your company name
 
-Antes de distribuir o pacote, preencha `resources/config/migration_config.json`:
+All scripts have a `COMPANY_NAME` variable at the top. Change it to match your organization:
+
+```bash
+readonly COMPANY_NAME="ACME"   # <── change this in every script
+```
+
+This controls the base directory:
+```
+/Library/Application Support/ACME MDM Migration/
+```
+
+### 2. Edit the config file
+
+Fill in `resources/config/migration_config.json`:
 
 ```json
 {
   "intune": {
-    "tenant_id":         "SEU_TENANT_ID",
-    "client_id":         "SEU_CLIENT_ID",
+    "tenant_id":         "YOUR_TENANT_ID",
+    "client_id":         "YOUR_CLIENT_ID",
     "teams_webhook_url": "https://outlook.office.com/webhook/...",
     "removal_timeout":   300
   },
   "organization": {
-    "name":               "Globo",
-    "notification_email": "suporte@globo.com"
+    "name":               "ACME Corp",
+    "notification_email": "it-support@acme.com"
   }
 }
 ```
 
-### 2. Provisione o Client Secret no Keychain
+### 3. Provision the Client Secret in Keychain
 
-O `client_secret` **não** é armazenado no JSON. Adicione-o ao System Keychain do Mac antes de executar:
+The `client_secret` is **never stored in the JSON file**. Provision it in the System Keychain before deployment:
 
 ```bash
 security add-generic-password \
-  -s "GloboMigrationService" \
+  -s "MDMMigrationService" \
   -a "IntuneAuth" \
-  -w "SEU_CLIENT_SECRET" \
+  -w "YOUR_CLIENT_SECRET" \
   /Library/Keychains/System.keychain
 ```
 
-> ⚠️ Nunca versione o `client_secret` no repositório.
+> The service name (`MDMMigrationService`) and account (`IntuneAuth`) are configured in `remover_intune.sh` via the `KEYCHAIN_SERVICE` and `KEYCHAIN_ACCOUNT` variables. Change them if needed.
+
+> ⚠️ Never commit secrets to the repository.
 
 ---
 
-## Como Executar
+## How to Run
 
-O script deve ser executado como root. Em produção, distribua via **Jamf Policy** ou **Apple Remote Desktop**:
+The script must be run as root. In production, deploy it via a **Jamf Policy**, **Apple Remote Desktop**, or an MDM-managed package:
 
 ```bash
-sudo bash "/Library/Application Support/Assistente de Migracao/bin/migracao_principal.sh"
+sudo bash "/Library/Application Support/ACME MDM Migration/bin/migracao_principal.sh"
 ```
 
-### Códigos de saída do orquestrador
+### Exit codes
 
-| Código | Significado |
+| Code | Meaning |
 |---|---|
-| `0` | Migração concluída com sucesso |
-| `1` | Falha na validação |
-| `2` | Falha ao instalar dependências |
-| `3` | Falha ao remover Intune |
-| `4` | Falha ao enrolar no Jamf |
+| `0` | Migration completed successfully |
+| `1` | Validation failure |
+| `2` | Dependency installation failure |
+| `3` | Intune removal failure |
+| `4` | Jamf enrollment failure |
 
 ---
 
-## Fluxo de Execução
+## Execution Flow
 
 ```
 migracao_principal.sh
 │
-├── [Passo 1] validacao_pre_migracao.sh
-│     ├── exit 0  → Mac já no Jamf  ──────────────────────────► pós-migração → fim
-│     ├── exit 10 → Mac no Intune   → continua fluxo completo
-│     ├── exit 20 → Sem MDM         → pula remoção, enrola no Jamf
-│     └── exit 1  → Erro            → aborta
+├── [Step 1] validacao_pre_migracao.sh
+│     ├── exit 0  → Already in Jamf ──────────────────► post-migration → done
+│     ├── exit 10 → On Intune       → full migration flow
+│     ├── exit 20 → No MDM          → skip removal, enroll in Jamf
+│     └── exit 1  → Error           → abort
 │
-├── [Passo 2] instalar_dependencias.sh
-│     └── Baixa swiftDialog (GitHub Releases)
-│         Verifica assinatura PKG (Team ID: PWA5E9TQ59)
+├── [Step 2] instalar_dependencias.sh
+│     └── Downloads swiftDialog from GitHub Releases
+│         Verifies PKG signature (Team ID: PWA5E9TQ59)
 │
-├── [Passo 3] remover_intune.sh
+├── [Step 3] remover_intune.sh  (only if exit 10)
 │     ├── OAuth 2.0 → Microsoft Graph API
-│     ├── Localiza dispositivo por serial number
+│     ├── Finds device by serial number
 │     ├── POST /managedDevices/{id}/retire
-│     └── Monitora remoção do perfil MDM (loop até confirmação)
+│     └── Monitors MDM profile removal (loop until confirmed)
 │         └── limpar_certificados_ms.sh
-│               └── Remove MS-ORGANIZATION-ACCESS do keychain do usuário
+│               └── Removes MS-ORGANIZATION-ACCESS from user keychain
 │
-├── [Passo 4] instalar_jamf.sh
+├── [Step 4] instalar_jamf.sh
 │     ├── profiles renew -type enrollment
-│     └── Monitora enrollment (20 tentativas × 30s = até 10 min)
+│     └── Monitors enrollment (20 attempts × 30s = up to 10 min)
 │
-└── [Passo 5] pos_migracao.sh
+└── [Step 5] pos_migracao.sh
       ├── jamf recon
-      ├── Limpeza de arquivos temporários
-      ├── Rotação de logs (máx. 10 MB / 7 dias)
-      └── Agenda autoeliminação da pasta do assistente
+      ├── Temporary file cleanup
+      ├── Log rotation (max 10 MB / 7 days)
+      └── Schedules self-removal of migration folder
 ```
 
 ---
 
-## Documentação
+## Customization
 
-| Documento | Público-alvo | Formato |
-|---|---|---|
-| [Guia Técnico](docs/Guia_Tecnico.docx) | Equipe de TI e administradores | .docx |
-| [Guia do Usuário](docs/Guia_Usuario.docx) | Colaboradores com Mac | .docx |
+### Changing the MDM enrollment wait time
 
-Logs de execução em `/Library/Application Support/Assistente de Migracao/logs/migracao.log`.
+In `instalar_jamf.sh`, adjust the `checks` and `interval` variables:
+
+```bash
+local checks=20    # number of attempts
+local interval=30  # seconds between attempts (total: 10 min)
+```
+
+### Using a different notification channel
+
+The `notificar_teams.sh` script sends Microsoft Teams Adaptive Cards. To use a different notification system, replace the `send_notification()` function with your preferred method (Slack, webhook, email, etc.).
+
+### Customizing the user-facing portal
+
+Edit the HTML files in `html/` to match your company branding, logo, and messaging. The pages are loaded by swiftDialog via the `--infobuttonaction` parameter in `migracao_principal.sh`.
+
+### State file location
+
+The migration state is written to:
+```
+/Library/Application Support/<COMPANY_NAME> MDM Migration/migration_state.json
+```
+
+Possible `migration_status` values:
+
+| Value | Description |
+|---|---|
+| `already_in_jamf` | Mac was already in Jamf at start |
+| `needs_migration` | Intune detected, migration required |
+| `intune_removed` | Intune removed successfully |
+| `jamf_enrolled` | Enrolled in Jamf successfully |
+| `completed` | Post-migration finalized |
+| `unknown_mdm` | Unrecognized MDM — manual action required |
 
 ---
 
-## Dependências
+## Documentation
 
-| Dependência | Origem | Observação |
+| Document | Audience |
+|---|---|
+| [Technical Guide](docs/Technical_Guide.docx) | IT administrators and system engineers |
+| [User Guide](docs/User_Guide.docx) | End users whose Macs will be migrated |
+
+Execution logs: `/Library/Application Support/<COMPANY_NAME> MDM Migration/logs/migration.log`
+
+---
+
+## Dependencies
+
+| Dependency | Source | Notes |
 |---|---|---|
-| swiftDialog | GitHub Releases (download automático) | Interface visual |
-| jq | Incluído no repositório (`bin/`) | arm64 e amd64 |
-| curl | Nativo macOS | Chamadas à API |
-| profiles | Nativo macOS | Gerenciamento MDM |
-| security | Nativo macOS | Acesso ao Keychain |
+| [swiftDialog](https://github.com/swiftDialog/swiftDialog) | Downloaded automatically | Visual progress UI |
+| [jq](https://jqlang.github.io/jq/) | Bundled in `bin/` | arm64 and amd64 binaries included |
+| curl | macOS native | API calls |
+| profiles | macOS native | MDM management |
+| security | macOS native | Keychain access |
+
+---
+
+## License
+
+MIT — feel free to adapt this project to your organization's needs.

@@ -1,275 +1,89 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>FAQ | Apple na Globo</title>
-  <meta name="description" content="Perguntas frequentes sobre a migração e novas políticas do ambiente Apple Globo.">
+  <title>FAQ | ACME MDM Migration</title>
   <style>
-    :root {
-      --font-family: 'Globotipo Texto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
-      --primary-color: #1a1a1a;
-      --accent-color: #0071e3;
-      --background-color: #f5f6fb;
-      --menu-background: #fff;
-      --border-radius: 18px;
-      --shadow-menu: 0 4px 24px rgba(0, 80, 200, 0.08);
-      --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.03);
-    }
-
-    body {
-      margin: 0;
-      background: var(--background-color);
-      color: var(--primary-color);
-      font-family: var(--font-family);
-      min-height: 100vh;
-      scroll-padding-top: 80px;
-    }
-
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: var(--menu-background);
-      box-shadow: var(--shadow-menu);
-      z-index: 100;
-      padding: 0 24px;
-      height: 70px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      border-bottom: 1px solid #ebebef;
-    }
-
-    nav .logo {
-      height: 90px;
-      margin-right: 22px;
-    }
-
-    nav ul {
-      display: flex;
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      gap: 32px;
-    }
-
-    nav ul li a {
-      color: var(--primary-color);
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 1rem;
-      transition: color .2s;
-    }
-
-    nav ul li a:hover,
-    nav ul li a.active {
-      color: var(--accent-color);
-    }
-
-    .faq-header {
-      max-width: 800px;
-      margin: 120px auto 36px auto;
-      text-align: left;
-    }
-
-    .faq-title {
-      font-size: 2rem;
-      color: var(--accent-color);
-      font-weight: 700;
-    }
-
-    .faq-desc {
-      font-size: 1.13rem;
-      margin-top: 12px;
-      color: #333;
-      margin-bottom: 32px;
-    }
-
-    .faq-list {
-      max-width: 800px;
-      margin: 0 auto 60px auto;
-    }
-
-    .faq-item {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: var(--shadow-card);
-      margin-bottom: 18px;
-      padding: 22px 26px 20px 26px;
-      transition: box-shadow 0.21s;
-      border-left: 6px solid var(--accent-color);
-    }
-
-    .faq-question {
-      font-size: 1.12rem;
-      color: var(--accent-color);
-      font-weight: bold;
-      margin-bottom: 7px;
-      cursor: pointer;
-      outline: none;
-    }
-
-    .faq-answer {
-      font-size: 1.04rem;
-      color: #333;
-      line-height: 1.7;
-      display: none;
-      margin-top: 5px;
-    }
-
-    .faq-item.active .faq-answer {
-      display: block;
-      animation: answerFade 0.18s;
-    }
-
-    @keyframes answerFade {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @media (max-width: 600px) {
-
-      .faq-header,
-      .faq-list {
-        margin-left: 10px;
-        margin-right: 10px;
-      }
-    }
+    :root { --accent: #0071e3; --dark: #1a1a1a; --bg: #f5f6fb; --white: #ffffff; --shadow: 0 4px 24px rgba(0,80,200,0.08); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
+    nav { position: fixed; top: 0; left: 0; right: 0; background: var(--white); box-shadow: var(--shadow); z-index: 100; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 32px; border-bottom: 1px solid #ebebef; }
+    nav .brand { font-size: 1.15rem; font-weight: 700; color: var(--accent); text-decoration: none; }
+    nav ul { display: flex; list-style: none; margin: 0; padding: 0; gap: 28px; }
+    nav ul li a { color: var(--dark); text-decoration: none; font-weight: 500; font-size: 0.97rem; transition: color .2s; }
+    nav ul li a:hover, nav ul li a.active { color: var(--accent); }
+    .header { max-width: 800px; margin: 110px auto 32px; padding: 0 24px; }
+    .header h1 { font-size: 2rem; color: var(--accent); font-weight: 700; }
+    .header p { font-size: 1.08rem; color: #444; line-height: 1.7; }
+    .faq-list { max-width: 800px; margin: 0 auto 60px; padding: 0 24px; display: flex; flex-direction: column; gap: 14px; }
+    .faq-item { background: var(--white); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border-left: 5px solid var(--accent); overflow: hidden; }
+    .faq-question { padding: 18px 22px; font-size: 1.06rem; font-weight: 700; color: var(--accent); cursor: pointer; user-select: none; }
+    .faq-answer { display: none; padding: 0 22px 18px; font-size: 1rem; color: #333; line-height: 1.7; }
+    .faq-item.open .faq-answer { display: block; animation: fadeIn .18s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
-
 <body>
   <nav>
-    <img src="./images/logo_globo.png" class="logo">
+    <a class="brand" href="index.html">ACME MDM Migration</a>
     <ul>
-      <li><a href="index.html">Início</a></li>
-      <li><a href="novidades.html">O que vai mudar?</a></li>
-      <li><a href="beneficios.html">Beneficios</a></li>
-      <li><a href="faq.html" class="active" style="color:#0071e3">FAQ</a></li>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="novidades.html">What's Changing</a></li>
+      <li><a href="beneficios.html">Benefits</a></li>
+      <li><a href="faq.html" class="active">FAQ</a></li>
     </ul>
   </nav>
-  <section class="faq-header">
-    <div class="faq-title">Perguntas frequentes (FAQ)</div>
-    <div class="faq-desc">
-      Tire suas dúvidas sobre o novo ambiente Apple, Jamf Connect, bloqueios, privilégios de admin e políticas de
-      segurança.
-      Se não encontrar o que procura, acione o suporte.
-    </div>
-  </section>
-  <section class="faq-list">
+
+  <div class="header">
+    <h1>Frequently Asked Questions</h1>
+    <p>Answers to the most common questions about the MDM migration, Jamf Connect, USB restrictions, admin privileges, and security policies. Can't find what you need? Contact IT support.</p>
+  </div>
+
+  <div class="faq-list">
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        Como faço login após a migração?
-      </div>
-      <div class="faq-answer">
-        O login será feito via Jamf Connect, com as mesmas credenciais usadas nos serviços da Globo/Microsoft. Se sua
-        senha precisa ser ajustada (por ser longa ou conter caracteres especiais), altere antes do próximo login.
-      </div>
+      <div class="faq-question" onclick="toggle(this)">How do I log in after the migration?</div>
+      <div class="faq-answer">Login will be handled by Jamf Connect using your existing corporate credentials (same as Microsoft 365 / Outlook). If your password contains special characters <b>~ ` ' " ^</b> or is very long, change it before the next login to avoid sync issues.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        Não sou mais admin no meu Mac, como faço para instalar apps?
-      </div>
-      <div class="faq-answer">
-        <p>
-          A administração será concedida temporariamente via Jamf Connect, sempre que você precisar instalar aplicativos
-          ou mudar configurações avançadas. Basta pedir elevação no menu do Jamf Connect!
-        </p>
-        <video controls playsinline muted preload="metadata" style="width:100%;border-radius:12px;margin-bottom:10px;">
-          <source src="./images/request_admin.mov" type="video/mp4">
-          Seu navegador não suporta vídeo HTML5.
-        </video>
-      </div>
+      <div class="faq-question" onclick="toggle(this)">I'm no longer an admin — how do I install apps?</div>
+      <div class="faq-answer">Admin access is granted temporarily via Jamf Connect. Click the Jamf Connect icon in the menu bar, select <b>"Request Admin Privileges"</b>, provide a reason, and you'll have admin access for 5 minutes. This keeps your Mac secure without blocking your work.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        O que acontece se tentar conectar um pendrive ou HD externo?
-      </div>
-      <div class="faq-answer">
-        <p>
-          Dispositivos externos USB não autorizados serão bloqueados automaticamente, protegendo seu Mac e os dados da
-          Globo. Se precisar de acesso especial, solicite à TI.
-        </p>
-        <div class="faq-answer">
-          <img src="./images/usb_block_message.png" alt="Exemplo visual do procedimento"
-            style="max-width:100%;border-radius:12px;box-shadow:0 2px 8px #d8d8d8;margin-bottom:10px;">
-        </div>
-      </div>
+      <div class="faq-question" onclick="toggle(this)">What happens if I plug in a USB drive?</div>
+      <div class="faq-answer">Unauthorized USB storage devices are blocked automatically to protect corporate data. A notification will appear on screen. If you need access to a specific device for work purposes, contact IT to request an exception.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        Meu papel de parede mudou, posso trocar?
-      </div>
-      <div class="faq-answer">
-        <p>
-          O papel de parede padrão será definido pela Globo para reforçar a identidade da empresa. Mudanças
-          personalizadas estão bloqueadas por política.
-        </p>
-        <div class="faq-answer">
-          <img src="./images/wallpaper.png" alt="Exemplo visual do procedimento"
-            style="max-width:100%;border-radius:12px;box-shadow:0 2px 8px #d8d8d8;margin-bottom:10px;">
-        </div>
-      </div>
+      <div class="faq-question" onclick="toggle(this)">My wallpaper changed — can I change it back?</div>
+      <div class="faq-answer">The default corporate wallpaper is set by policy and cannot be changed by users. This is a standard configuration managed by the IT team.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        Perdi o acesso ao Mac ou não lembro a senha. O que faço?
-      </div>
-      <div class="faq-answer">
-        <p>
-          Sua senha será a mesma do Microsoft/Globo. Caso esqueça, altere pelo portal de senhas Microsoft
-          (Office/Outlook)
-          e reinicie o Mac, ou procure o suporte.
-        </p>
-        <div class="faq-answer">
-          <img src="./images/password_sync.png" alt="Exemplo visual do procedimento"
-            style="max-width:100%;border-radius:12px;box-shadow:0 2px 8px #d8d8d8;margin-bottom:10px;">
-        </div>
-      </div>
+      <div class="faq-question" onclick="toggle(this)">I forgot my password or can't log in. What do I do?</div>
+      <div class="faq-answer">Your Mac password is synced with your Microsoft/corporate account. Reset it through the Microsoft portal (Office / Outlook settings), then restart your Mac. Jamf Connect will sync the new password automatically. Contact IT support if you're still locked out.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        Outros bloqueios afetarão meu dia a dia?
-      </div>
-      <div class="faq-answer">
-        As proteções implementadas não impactarão seu fluxo de tarefas comum. São medidas de segurança para proteger a
-        informação da empresa. Dúvidas? Consulte o FAQ ou suporte.
-      </div>
+      <div class="faq-question" onclick="toggle(this)">Will other restrictions affect my daily work?</div>
+      <div class="faq-answer">The security policies are designed to protect the environment without impacting your normal workflow. Most restrictions apply to unauthorized external devices and high-risk system changes. If you encounter any issues, contact IT support.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
-        Preciso migrar arquivos ou fazer backup manual?
-      </div>
-      <div class="faq-answer">
-        Antes da migração, é recomendado salvar arquivos importantes no OneDrive ou na nuvem da Globo. O time de TI pode
-        orientar backups específicos conforme o seu perfil.
-      </div>
+      <div class="faq-question" onclick="toggle(this)">Do I need to back up my files before the migration?</div>
+      <div class="faq-answer">We recommend saving important files to OneDrive or another cloud storage solution before the migration as a precaution. Local files are not deleted during the migration, but a backup is always good practice.</div>
     </div>
-  </section>
+    <div class="faq-item">
+      <div class="faq-question" onclick="toggle(this)">Will my Mac restart during the migration?</div>
+      <div class="faq-answer">The migration itself does not force a restart. After completion, Jamf Pro policies may request a restart to apply configurations. Follow the on-screen instructions if prompted.</div>
+    </div>
+  </div>
+
   <script>
-    function toggleFAQ(elem) {
-      const parent = elem.parentElement;
-      parent.classList.toggle('active');
+    function toggle(el) {
+      el.parentElement.classList.toggle('open');
     }
-    // Fechar FAQs abertas clicando fora (opcional)
-    document.body.addEventListener('click', function (e) {
+    document.body.addEventListener('click', function(e) {
       if (!e.target.classList.contains('faq-question')) {
-        document.querySelectorAll('.faq-item.active').forEach(function (el) {
-          el.classList.remove('active');
-        });
+        document.querySelectorAll('.faq-item.open').forEach(function(el) { el.classList.remove('open'); });
       }
     });
   </script>
 </body>
-
 </html>

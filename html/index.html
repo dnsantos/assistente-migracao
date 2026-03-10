@@ -1,31 +1,30 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Bem-vindo à nova geração Apple na Globo</title>
-  <meta name="description"
-    content="Página de migração para nova ferramenta Apple na Globo. Mais segurança, inovação e futuro digital integrado.">
-  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <title>Mac MDM Migration | ACME Corp</title>
+  <meta name="description" content="Your Mac is being migrated to a new management platform.">
   <style>
     :root {
-      --font-family: 'Globotipo Texto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
-      --primary-color: #1a1a1a;
-      --accent-color: #0071e3;
-      --background-color: #f5f6fb;
-      --menu-background: #fff;
-      --border-radius: 18px;
-      --shadow-menu: 0 4px 24px rgba(0, 80, 200, 0.08);
+      --accent: #0071e3;
+      --dark: #1a1a1a;
+      --bg: #f5f6fb;
+      --white: #ffffff;
+      --shadow: 0 4px 24px rgba(0, 80, 200, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
-      background: var(--background-color);
-      color: var(--primary-color);
-      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--dark);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
-      scroll-padding-top: 80px;
     }
 
     nav {
@@ -33,20 +32,22 @@
       top: 0;
       left: 0;
       right: 0;
-      background: var(--menu-background);
-      box-shadow: var(--shadow-menu);
+      background: var(--white);
+      box-shadow: var(--shadow);
       z-index: 100;
       padding: 0 24px;
-      height: 70px;
+      height: 64px;
       display: flex;
       align-items: center;
-      justify-content: flex-start;
+      gap: 32px;
       border-bottom: 1px solid #ebebef;
     }
 
-    nav .logo {
-      height: 90px;
-      margin-right: 22px;
+    nav .brand {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-decoration: none;
     }
 
     nav ul {
@@ -54,176 +55,92 @@
       list-style: none;
       margin: 0;
       padding: 0;
-      gap: 32px;
+      gap: 28px;
     }
 
     nav ul li a {
-      color: var(--primary-color);
+      color: var(--dark);
       text-decoration: none;
       font-weight: 500;
-      font-size: 1rem;
+      font-size: 0.97rem;
       transition: color .2s;
     }
 
-    nav ul li a:hover {
-      color: var(--accent-color);
-    }
-
-    /* LOGOS BAR ALINHADA AO CENTRO */
-    .logos-bar-v2 {
-      display: grid;
-      grid-template-columns: 80px 56px 70px;
-      /* Globo | + | Apple */
-      justify-content: center;
-      align-items: center;
-      margin: 120px 0 50px 0;
-      column-gap: 10px;
-    }
-
-    .globo-logo {
-      height: 80px;
-      width: 80px;
-      object-fit: contain;
-      display: block;
-      justify-self: end;
-      align-self: center;
-    }
-
-    .apple-logo {
-      height: 70px;
-      width: 70px;
-      object-fit: contain;
-      display: block;
-      justify-self: start;
-      align-self: center;
-    }
-
-    .plus-sign-v2 {
-      font-size: 3rem;
-      color: #555;
-      font-weight: 700;
-      line-height: 1;
-      user-select: none;
-      justify-self: center;
-      align-self: center;
-      display: flex;
-      align-items: center;
-    }
-
-    @media (max-width: 800px) {
-      .logos-bar-v2 {
-        grid-template-columns: 100px 32px 38px;
-        column-gap: 12px;
-        margin: 40px 0 12px 0;
-      }
-
-      .globo-logo {
-        height: 100px;
-        width: 100px;
-      }
-
-      .apple-logo {
-        height: 38px;
-        width: 38px;
-      }
-
-      .plus-sign-v2 {
-        font-size: 1.5rem;
-      }
+    nav ul li a:hover,
+    nav ul li a.active {
+      color: var(--accent);
     }
 
     .hero {
       max-width: 800px;
-      margin: 0 auto 36px auto;
-      text-align: left;
+      margin: 110px auto 0 auto;
+      padding: 0 24px;
     }
 
-    .hero-title {
-      font-size: 2.4rem;
-      color: var(--accent-color);
+    .hero h1 {
+      font-size: 2.2rem;
+      color: var(--accent);
       font-weight: 700;
-      margin-bottom: 18px;
-      line-height: 1.1;
-      letter-spacing: -.02em;
+      margin-bottom: 16px;
     }
 
-    .hero-description {
-      font-size: 1.25rem;
-      margin-bottom: 34px;
-      color: #333;
-      line-height: 1.7;
+    .notice {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 28px;
+      font-size: 0.97rem;
     }
 
-    .main-text {
-      font-size: 1.15rem;
-      line-height: 1.75;
-      color: var(--primary-color);
+    .notice b {
+      color: #b45309;
+    }
+
+    .content {
       max-width: 800px;
-      margin: 0 auto 40px auto;
+      margin: 0 auto;
+      padding: 0 24px 60px;
+      font-size: 1.08rem;
+      line-height: 1.75;
+      color: #333;
     }
 
-    .main-text b,
-    .main-text strong {
-      font-weight: 700;
-      color: var(--accent-color);
+    .content b {
+      color: var(--accent);
     }
   </style>
 </head>
 
 <body>
   <nav>
-    <a href="index.html"><img src="./images/logo_globo.png" class="logo"></a>
+    <a class="brand" href="index.html">ACME MDM Migration</a>
     <ul>
-      <li><a href="index.html" class="active" style="color:#0071e3">Início</a></li>
-      <li><a href="novidades.html">O que vai mudar?</a></li>
-      <li><a href="beneficios.html">Beneficios</a></li>
+      <li><a href="index.html" class="active">Home</a></li>
+      <li><a href="novidades.html">What's Changing</a></li>
+      <li><a href="beneficios.html">Benefits</a></li>
       <li><a href="faq.html">FAQ</a></li>
     </ul>
   </nav>
-  <div class="logos-bar-v2">
-    <img src="./images/new_logo_globo.png" alt="Logo Globo" class="globo-logo">
-    <span class="plus-sign-v2">+</span>
-    <img src="./images/apple_logo.svg" alt="Logo Apple" class="apple-logo">
-  </div>
-  <section class="hero">
-    <div class="hero-title">Bem-vindo à próxima geração Apple na Globo</div>
-  </section>
-  <div class="main-text">
 
-    <div
-      style="background: #f9f6f2; border-left: 4px solid #e79015; padding: 16px; margin-bottom:18px; font-weight: bold;">
-      Atenção: Você poderá seguir para o próximo passo em <span style="color:#e79015;font-weight:bold;">aproximadamente
-        10 minutos</span>.<br>
-      Enquanto isso, aproveite para revisar todas as informações desta página e visitar nossa <a href="faq.html"
-        style="color:#0071c2; text-decoration: underline;">FAQ</a> para tirar dúvidas.
+  <section class="hero">
+    <h1>Welcome to the new Mac management platform</h1>
+  </section>
+
+  <div class="content">
+    <div class="notice">
+      <b>Heads up:</b> You can proceed to the next step in approximately <b>10 minutes</b>.<br>
+      In the meantime, review this page and check the <a href="faq.html">FAQ</a> for any questions.
     </div>
 
-    Assim como a <b>Globo celebra 100 anos de criatividade e inovação</b>, seu <span class="modelo-maquina"></span> está
-    entrando em um novo capítulo: mais conectado, seguro e preparado para as próximas décadas.<br><br>
-    Para fortalecer nossa cultura digital e garantir ainda mais proteção aos dados e produtividade de todos,
-    <b>implementaremos uma nova ferramenta de gestão para o ambiente Apple</b>.<br><br>
-    Essa migração não é apenas tecnológica — ela é parte de um conjunto de iniciativas que visam um futuro mais digital
-    e colaborativo, onde tecnologia, segurança e experiência do usuário caminham juntos.<br><br>
-    Nosso compromisso é conectar e potencializar talentos, histórias e inovação. Bem-vindo à próxima geração Apple na
-    Globo!
-  </div>
+    Your Mac is being migrated to a <b>new device management platform</b>. This change strengthens
+    security, simplifies IT support, and improves your day-to-day experience.<br><br>
 
-  <script>
-    function detectMacModel() {
-      var ua = navigator.userAgent;
-      if (ua.includes("Macintosh")) {
-        return "Mac";
-      }
-      return "Computador";
-    }
-    document.addEventListener("DOMContentLoaded", function () {
-      var spans = document.querySelectorAll(".modelo-maquina");
-      var modelo = detectMacModel();
-      spans.forEach(function (span) {
-        span.textContent = modelo;
-      });
-    });
-  </script>
+    The migration is <b>automatic</b> — you don't need to do anything technical. The process runs
+    in the background and takes approximately <b>15–30 minutes</b>.<br><br>
+
+    You can <b>continue using your Mac normally</b> while the migration runs.
+  </div>
 </body>
 
 </html>

@@ -1,259 +1,275 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tutoriais de migração | Apple na Globo</title>
-  <meta name="description" content="Dicas e guias ilustrados sobre as novas configurações do Mac após a migração na Globo.">
+  <title>What's Changing | ACME MDM Migration</title>
   <style>
     :root {
-      --font-family: 'Globotipo Texto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
-      --primary-color: #1a1a1a;
-      --accent-color: #0071e3;
-      --background-color: #f5f6fb;
-      --menu-background: #fff;
-      --alert-bg: #fff3d2;
-      --alert-border: #e2b705;
-      --border-radius: 18px;
-      --shadow-menu: 0 4px 24px rgba(0,80,200,0.08);
-      --shadow-card: 0 2px 12px rgba(0,0,0,0.03);
-      --shadow-alert: 0 8px 30px rgba(230,170,30,0.16), 0 1.5px 5px #e2b70522;
-      --shadow-modal: 0 12px 32px rgba(0,0,0,0.32), 0 1.5px 6px #1a1a1a18;
+      --accent: #0071e3;
+      --dark: #1a1a1a;
+      --bg: #f5f6fb;
+      --white: #ffffff;
+      --shadow: 0 4px 24px rgba(0, 80, 200, 0.08);
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      background: var(--background-color);
-      color: var(--primary-color);
-      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--dark);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
-      scroll-padding-top: 80px;
     }
+
     nav {
       position: fixed;
-      top: 0; left: 0; right: 0;
-      background: var(--menu-background);
-      box-shadow: var(--shadow-menu);
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--white);
+      box-shadow: var(--shadow);
       z-index: 100;
       padding: 0 24px;
-      height: 70px;
+      height: 64px;
       display: flex;
       align-items: center;
-      justify-content: flex-start;
+      gap: 32px;
       border-bottom: 1px solid #ebebef;
     }
-    nav .logo { height: 90px; margin-right: 22px;}
-    nav ul { display: flex; list-style: none; margin: 0; padding: 0; gap: 32px;}
-    nav ul li a { color: var(--primary-color); text-decoration: none; font-weight: 500; font-size: 1rem; transition: color .2s;}
-    nav ul li a:hover, nav ul li a.active { color: var(--accent-color);}
-    .tutorials-header { max-width: 800px; margin: 120px auto 36px auto; text-align: left;}
-    .tutorials-title { font-size: 2rem; color: var(--accent-color); font-weight: 700; }
-    .tutorials-desc { font-size: 1.13rem; margin-top: 12px; color: #333; margin-bottom: 32px; }
-    .alert-floating {
-      position: fixed;
-      top: 90px;
-      right: 36px;
-      z-index: 9999;
-      background: var(--alert-bg);
-      border: 2px solid var(--alert-border);
-      color: #664400;
-      border-radius: 16px;
-      box-shadow: var(--shadow-alert);
-      max-width: 370px;
-      width: 89vw;
-      min-width: 220px;
-      padding: 22px 24px 18px 24px;
-      font-size: 1.07rem;
-      animation: fadein 0.7s;
+
+    nav .brand {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    nav ul {
       display: flex;
-      flex-direction: column;
-      gap: 5px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      gap: 28px;
     }
-    .alert-floating b { color: var(--accent-color);}
-    .alert-close {
-      position: absolute;
-      top: 10px;
-      right: 13px;
-      background: none;
-      border: none;
-      font-size: 1.2rem;
-      color: #888;
-      cursor: pointer;
-      padding: 2px 8px;
-      border-radius: 5px;
-      transition: background 0.19s;
+
+    nav ul li a {
+      color: var(--dark);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.97rem;
+      transition: color .2s;
     }
-    .alert-close:hover { background: #fff7e4; color: #9b7c00;}
-    @keyframes fadein {
-      from { opacity: 0; transform: translateY(-18px);}
-      to { opacity: 1; transform: translateY(0);}
+
+    nav ul li a:hover,
+    nav ul li a.active {
+      color: var(--accent);
     }
-    .tutorial-list {
-      display: flex;
-      flex-direction: column;
-      gap: 38px;
+
+    .header {
       max-width: 800px;
-      margin: 0 auto 60px auto;
+      margin: 110px auto 32px;
+      padding: 0 24px;
     }
-    .tutorial-card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: var(--shadow-card);
-      padding: 28px 24px 26px 24px;
+
+    .header h1 {
+      font-size: 2rem;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .header p {
+      font-size: 1.08rem;
+      color: #444;
+      line-height: 1.7;
+    }
+
+    .notice {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin-bottom: 28px;
+      font-size: 0.97rem;
+    }
+
+    .cards {
+      max-width: 800px;
+      margin: 0 auto 60px;
+      padding: 0 24px;
       display: flex;
-      gap: 26px;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+      padding: 24px 28px;
+      display: flex;
+      gap: 24px;
       align-items: flex-start;
-      flex-wrap: wrap;
     }
-    .tutorial-card img, .tutorial-card video {
+
+    .card img,
+    .card video {
       border-radius: 10px;
-      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
-      background: #f5f6fb;
-      width: 240px;
+      width: 220px;
       max-width: 100%;
-      object-fit: contain;
-      margin-bottom: 8px;
-      margin-top: 3px;
       cursor: pointer;
-      transition: box-shadow 0.18s, transform 0.14s;
+      transition: transform .15s, box-shadow .18s;
     }
-    .tutorial-card img:hover, .tutorial-card video:hover {
-      box-shadow: 0 6px 32px rgba(0,0,0,0.17);
+
+    .card img:hover,
+    .card video:hover {
       transform: scale(1.04);
+      box-shadow: 0 6px 28px rgba(0, 0, 0, 0.15);
     }
-    .tutorial-content { flex: 1 1 220px; min-width: 200px; color: #23265a;}
-    .tutorial-content ul { padding-left: 20px;}
-    .tutorial-title { font-size: 1.23rem; color: var(--accent-color); font-weight: 700; margin-bottom: 8px; margin-top: 0;}
-    .tutorial-caption { margin-top: 4px; font-size: 0.97rem; color: #606065;}
-    /* Modal overlay style and animation */
-    #mediaModal {
+
+    .card-body {
+      flex: 1;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .card-caption {
+      font-size: 0.93rem;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    #modal {
       display: none;
       position: fixed;
-      left: 0; top: 0; width: 100vw; height: 100vh;
-      background: rgba(30,30,40,0.78);
-      z-index: 100000;
+      inset: 0;
+      background: rgba(20, 20, 30, 0.8);
+      z-index: 9999;
       justify-content: center;
       align-items: center;
-      animation: modalFadeIn 0.27s;
     }
-    @keyframes modalFadeIn {
-      from { opacity: 0;}
-      to { opacity: 1;}
+
+    #modal-content img,
+    #modal-content video {
+      max-width: 90vw;
+      max-height: 82vh;
+      border-radius: 16px;
     }
-    #mediaContent {
-      animation: zoomOpen 0.26s;
-    }
-    @keyframes zoomOpen {
-      from { transform: scale(0.5); opacity: 0;}
-      to   { transform: scale(1); opacity: 1;}
-    }
+
     .modal-close {
       position: absolute;
-      top: 28px;
-      right: 54px;
-      font-size: 2.1rem;
-      color: #f5f6fb;
+      top: 24px;
+      right: 40px;
+      font-size: 2rem;
+      color: #eee;
       background: none;
       border: none;
       cursor: pointer;
-      z-index: 100002;
-      transition: color 0.2s;
-    }
-    .modal-close:hover { color: #ffaa44;}
-    @media (max-width: 600px) {
-      .alert-floating { right: 5px; top: 76px; min-width: 80vw; font-size: 0.99rem;}
-      .tutorials-header { margin-left: 10px; margin-right: 10px;}
-      .tutorial-list { margin-left: 10px; margin-right: 10px;}
-      .modal-close { right: 22px;}
     }
   </style>
 </head>
+
 <body>
   <nav>
-    <img src="./images/logo_globo.png" class="logo">
+    <a class="brand" href="index.html">ACME MDM Migration</a>
     <ul>
-      <li><a href="index.html">Início</a></li>
-      <li><a href="novidades.html" class="active" style="color:#0071e3">O que vai mudar?</a></li>
-      <li><a href="beneficios.html">Beneficios</a></li>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="novidades.html" class="active">What's Changing</a></li>
+      <li><a href="beneficios.html">Benefits</a></li>
       <li><a href="faq.html">FAQ</a></li>
     </ul>
   </nav>
-  <div class="alert-floating" id="alertFlutuante">
-    <button class="alert-close" onclick="document.getElementById('alertFlutuante').style.display='none';" aria-label="Fechar aviso">&times;</button>
-    <b>Atenção à senha utilizada nos serviços Microsoft:</b><br>
-    Durante o processo de migração, sua senha dos serviços Microsoft será sincronizada com a senha local do Mac.<br><br>
-    Se sua senha contiver os caracteres especiais: <b> ~ ` ' " ^ </b> é recomendada a troca antes do próximo login.
-    Senhas com estes caracteres podem causar incompatibilidade durante a sincronização.<br>
-    <p><b>Obs.: Senhas muito extensas também podem causar transtornos no processo de login.</b></p>
-    Faça a alteração pelo portal Microsoft, escolhendo uma senha forte e de tamanho moderado.<br><br>
-    <b>No próximo login, sua senha será sincronizada automaticamente com a senha Microsoft!</b>
-    <br><span style="font-size:0.98em;">Em caso de dúvidas, consulte o suporte.</span>
+
+  <div class="header">
+    <h1>What's changing for you</h1>
+    <p>Here's a visual guide to the main changes you'll notice after the migration.</p>
+    <div class="notice">
+      <b>Password reminder:</b> After migration, your Mac password will sync with your Microsoft/corporate account.
+      Avoid passwords with the following special characters: <b>~ ` ' " ^</b> — they may cause login issues.
+      Very long passwords can also cause problems. Change yours at the Microsoft portal if needed.
+    </div>
   </div>
-  <section class="tutorials-header">
-    <div class="tutorials-title">O que vai mudar para você</div>
-    <div class="tutorials-desc">Aqui você encontra orientações ilustradas e exemplos das principais mudanças após a migração. Use os prints e vídeos para tirar dúvidas rapidamente!</div>
-  </section>
-  <section class="tutorial-list">
-    <div class="tutorial-card">
-      <img src="./images/login_sso.gif" alt="Tela de login via Jamf Connect" onclick="showModal(this)">
-      <div class="tutorial-content">
-        <div class="tutorial-title">Novo login com Jamf Connect</div>
-        <div>Após a migração, seu próximo login será usando o Jamf Connect, integrando seu acesso corporativo com mais segurança. Basta inserir suas credenciais Globo, e caso necessário escolha a conta para sincronizar e clique em conectar, conforme a nova tela ilustrada.</div>
-        <div class="tutorial-caption">Antes de reiniciar a máquina, caso sua senha tenha os caracteres <br><b>~ ` ' " ^</b> você de realziar a troca </div>
+
+  <div class="cards">
+    <div class="card">
+      <!-- Replace src with your own login screenshot or GIF -->
+      <!-- <img src="./images/login_sso.gif" alt="New login screen" onclick="showModal(this)"> -->
+      <div class="card-body">
+        <div class="card-title">New login with Jamf Connect</div>
+        <div>After migration, your next login will use <b>Jamf Connect</b>, which syncs your Mac password with your
+          corporate account. Simply enter your corporate credentials as usual.</div>
+        <div class="card-caption">Tip: change your password before the next login if it contains the characters listed
+          above.</div>
       </div>
     </div>
-    <div class="tutorial-card">
-      <video src="./images/request_admin.mov" onclick="showModal(this)"></video>
-      <div class="tutorial-content">
-        <div class="tutorial-title">Como solicitar acesso de admin temporário</div>
+
+    <div class="card">
+      <!-- Replace src with your own screen recording -->
+      <!-- <video src="./images/request_admin.mov" onclick="showModal(this)"></video> -->
+      <div class="card-body">
+        <div class="card-title">How to request temporary admin access</div>
         <ul>
-          <li>No menu do Jamf Connect (topo da tela), clique em <b>Request Admin Privileges</b>.</li>
-          <li>Informe o motivo e aguarde alguns instantes.</li>
-          <li>Seu acesso será de admin por 5 minutos, apenas para aquela necessidade.</li>
+          <li>Click the <b>Jamf Connect</b> icon in the menu bar (top of screen)</li>
+          <li>Select <b>"Request Admin Privileges"</b></li>
+          <li>Enter the reason for your request</li>
+          <li>You'll have admin access for <b>5 minutes</b></li>
         </ul>
-        <div class="tutorial-caption">Veja como é simples solicitar elevação, deixando seu Mac seguro para todos.</div>
+        <div class="card-caption">This keeps your Mac secure while still letting you install what you need.</div>
       </div>
     </div>
-    <div class="tutorial-card">
-      <img src="./images/usb_block_message.png" alt="Alerta de USB bloqueado" onclick="showModal(this)">
-      <div class="tutorial-content">
-        <div class="tutorial-title">USB bloqueado</div>
-        <div>Se tentar conectar um dispositivo USB não autorizado, será exibido um alerta e o acesso será negado automaticamente.</div>
-        <div class="tutorial-caption">Essa medida protege seus dados e o ambiente corporativo.</div>
+
+    <div class="card">
+      <!-- Replace src with your own USB block screenshot -->
+      <!-- <img src="./images/usb_block_message.png" alt="USB blocked alert" onclick="showModal(this)"> -->
+      <div class="card-body">
+        <div class="card-title">USB devices blocked</div>
+        <div>Unauthorized USB drives and external storage devices will be blocked automatically. An alert will appear on
+          screen. Contact IT if you need access to a specific device.</div>
+        <div class="card-caption">This protects corporate data from unauthorized access.</div>
       </div>
     </div>
-    <div class="tutorial-card">
-      <img src="./images/wallpaper.png" alt="Exemplo de papel de parede corporativo Globo" onclick="showModal(this)">
-      <div class="tutorial-content">
-        <div class="tutorial-title">Novo papel de parede Globo</div>
-        <div>Após a migração, seu Mac exibirá automaticamente o papel de parede institucional da Globo, proporcionando mais identidade visual e integração ao time.</div>
-        <div class="tutorial-caption">O layout pode variar conforme campanhas da empresa.</div>
+
+    <div class="card">
+      <!-- Replace src with your own wallpaper screenshot -->
+      <!-- <img src="./images/wallpaper.png" alt="Corporate wallpaper" onclick="showModal(this)"> -->
+      <div class="card-body">
+        <div class="card-title">Corporate wallpaper</div>
+        <div>Your Mac will automatically display the company wallpaper after migration. Custom wallpaper changes are
+          disabled by policy.</div>
+        <div class="card-caption">The design may change with company campaigns.</div>
       </div>
     </div>
-  </section>
-  <!-- Modal para mídia ampliada -->
-  <div id="mediaModal" style="display:none;position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(30,30,40,0.78);z-index:100000;justify-content:center;align-items:center;">
-    <button class="modal-close" onclick="closeModal()" aria-label="Fechar vídeo ou imagem ampliada">&times;</button>
-    <div id="mediaContent"></div>
+  </div>
+
+  <div id="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="modal-content"></div>
   </div>
   <script>
     function showModal(el) {
-      var html = "";
-      if (el.tagName === "IMG") {
-        html = "<img src='" + el.src + "' style='max-width:90vw;max-height:80vh;border-radius:18px;box-shadow:var(--shadow-modal);'/>";
-      }
-      if (el.tagName === "VIDEO") {
-        html = "<video src='" + el.src + "' controls autoplay style='max-width:90vw;max-height:80vh;border-radius:18px;box-shadow:var(--shadow-modal);'></video>";
-      }
-      document.getElementById("mediaContent").innerHTML = html;
-      document.getElementById("mediaModal").style.display = "flex";
+      var html = el.tagName === "IMG"
+        ? "<img src='" + el.src + "'>"
+        : "<video src='" + el.src + "' controls autoplay></video>";
+      document.getElementById("modal-content").innerHTML = html;
+      document.getElementById("modal").style.display = "flex";
     }
     function closeModal() {
-      document.getElementById("mediaModal").style.display = "none";
-      document.getElementById("mediaContent").innerHTML = "";
+      document.getElementById("modal").style.display = "none";
+      document.getElementById("modal-content").innerHTML = "";
     }
-    document.getElementById("mediaModal").onclick = function(e){
-      if(e.target.id === "mediaModal"){ closeModal(); }
-    }
+    document.getElementById("modal").onclick = function (e) {
+      if (e.target.id === "modal") closeModal();
+    };
   </script>
 </body>
+
 </html>

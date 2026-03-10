@@ -1,18 +1,16 @@
 {
   "intune": {
-    "tenant_id": "TENANT_ID",
-    "client_id": "CLIENT_ID",
-
-    "teams_webhook_url": "WEBHOOHK_URL",
+    "tenant_id": "YOUR_TENANT_ID",
+    "client_id": "YOUR_CLIENT_ID",
+    "teams_webhook_url": "YOUR_TEAMS_WEBHOOK_URL",
     "removal_timeout": 300
   },
   "organization": {
-    "name": "ORGANIZATION_NAME",
-    "notification_email": "SUPPORT_EMAIL"
+    "name": "ACME Corp",
+    "notification_email": "it-support@acme.com"
   },
   "settings": {
     "debug_mode": false,
     "log_level": "info"
-  } 
+  }
 }
-

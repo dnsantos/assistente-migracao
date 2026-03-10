@@ -2,127 +2,113 @@
 
 ###############################################################################
 # limpar_certificados_ms.sh
-# Remove certificado MS-ORGANIZATION-ACCESS do keychain do usuário
+# Removes the MS-ORGANIZATION-ACCESS certificate from the user keychain
 #
-# Versão: 1.0
-# Data: 2025-11-11
+# Version: 1.0
 #
 # Exit Codes:
-#   0 - Sucesso (certificado removido ou não encontrado)
-#   1 - Erro (não está rodando como root ou usuário não logado)
+#   0 - Success (certificate removed or not found)
+#   1 - Error (not running as root or no user logged in)
 ###############################################################################
 
-# Variáveis
-readonly BASE_DIR="/Library/Application Support/Assistente de Migracao"
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+readonly COMPANY_NAME="ACME" # <── change this
+readonly BASE_DIR="/Library/Application Support/${COMPANY_NAME} MDM Migration"
+# ──────────────────────────────────────────────────────────────────────────────
+
 readonly LOGS_DIR="${BASE_DIR}/logs"
-readonly MAIN_LOG="${LOGS_DIR}/migracao.log"
+readonly MAIN_LOG="${LOGS_DIR}/migration.log"
 readonly DIALOG_LOG="/var/tmp/dialog_migration.log"
 
-# Criar diretório de logs se não existir
 if [[ ! -d "${LOGS_DIR}" ]]; then
     mkdir -p "${LOGS_DIR}"
 fi
 
-###############################################################################
-# FUNÇÃO: Logging
-###############################################################################
 log_message() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo "[${timestamp}] $1" | tee -a "${MAIN_LOG}"
 }
 
-###############################################################################
-# FUNÇÃO: Atualizar Dialog (opcional)
-###############################################################################
 update_dialog() {
     local statustext="$1"
-
     if [[ -f "${DIALOG_LOG}" ]]; then
         echo "listitem: index: 2, statustext: ${statustext}" >>"${DIALOG_LOG}"
     fi
 }
 
 ###############################################################################
-# INICIALIZAÇÃO
+# INITIALIZATION
 ###############################################################################
-
 log_message "========================================="
-log_message "REMOVENDO CERTIFICADO MS-ORGANIZATION-ACCESS"
+log_message "REMOVING MS-ORGANIZATION-ACCESS CERTIFICATE"
 log_message "========================================="
 
-# Verificar se está rodando como root
 if [[ $EUID -ne 0 ]]; then
-    log_message "✗ Este script precisa ser executado como root"
+    log_message "✗ This script must be run as root"
     exit 1
 fi
 
-# Obter usuário logado
 LOGGED_USER=$(stat -f "%Su" /dev/console 2>/dev/null || echo "none")
 
 if [[ "$LOGGED_USER" == "none" ]] || [[ "$LOGGED_USER" == "root" ]]; then
-    log_message "⚠ Nenhum usuário logado - não é possível remover certificado"
-    update_dialog "⚠ Nenhum usuário logado"
+    log_message "⚠ No user logged in — cannot remove certificate"
+    update_dialog "⚠ No user logged in"
     exit 1
 fi
 
-log_message "Usuário logado: ${LOGGED_USER}"
+log_message "Logged in user: ${LOGGED_USER}"
 
 ###############################################################################
-# FUNÇÃO: Remover MS-ORGANIZATION-ACCESS do keychain do usuário
+# FUNCTION: Remove MS-ORGANIZATION-ACCESS from user keychain
 ###############################################################################
 delete_ms_organization_access() {
     local user_keychain="/Users/${LOGGED_USER}/Library/Keychains/login.keychain-db"
 
     if [[ ! -f "$user_keychain" ]]; then
-        log_message "✗ Keychain do usuário não encontrado: ${user_keychain}"
-        update_dialog "✗ Keychain não encontrado"
+        log_message "✗ User keychain not found: ${user_keychain}"
+        update_dialog "✗ Keychain not found"
         return 1
     fi
 
-    log_message "Procurando certificado MS-ORGANIZATION-ACCESS..."
-    update_dialog "🔍 Procurando MS-ORGANIZATION-ACCESS..."
+    log_message "Searching for MS-ORGANIZATION-ACCESS certificate..."
+    update_dialog "🔍 Searching for MS-ORGANIZATION-ACCESS..."
 
-    # Buscar certificado no keychain
     KEY_INFO=$(security find-certificate -a "$user_keychain" 2>/dev/null)
-
-    sleep 1 # Opcional, para visualização
+    sleep 1
 
     if [[ -n "$KEY_INFO" ]]; then
-        # Verificar se MS-ORGANIZATION-ACCESS existe
         if echo "$KEY_INFO" | grep -qi "MS-ORGANIZATION-ACCESS"; then
-            log_message "   ✓ Certificado MS-ORGANIZATION-ACCESS encontrado"
-            update_dialog "🧹 Removendo certificado..."
+            log_message "   ✓ MS-ORGANIZATION-ACCESS certificate found"
+            update_dialog "🧹 Removing certificate..."
 
-            # Extrair nome do certificado
             CERT_INFO=$(echo "$KEY_INFO" | grep -B 10 "MS-ORGANIZATION-ACCESS" | grep '"alis"' | cut -d'"' -f4)
 
             if [[ -n "$CERT_INFO" ]]; then
-                log_message "   Nome do certificado: ${CERT_INFO}"
+                log_message "   Certificate name: ${CERT_INFO}"
 
-                # Remover certificado
                 if /usr/bin/security delete-certificate -c "$CERT_INFO" "$user_keychain" >/dev/null 2>&1; then
-                    log_message "   ✓ Certificado removido com sucesso"
-                    update_dialog "✅ Certificado removido"
+                    log_message "   ✓ Certificate removed successfully"
+                    update_dialog "✅ Certificate removed"
                     sleep 60
                     return 0
                 else
-                    log_message "   ✗ Falha ao remover; verifique permissões ou unicidade"
-                    update_dialog "⚠ Falha ao remover certificado"
+                    log_message "   ✗ Failed to remove certificate — check permissions"
+                    update_dialog "⚠ Failed to remove certificate"
                     return 1
                 fi
             else
-                log_message "   ⚠ Não foi possível extrair nome do certificado"
-                update_dialog "⚠ Erro ao extrair nome"
+                log_message "   ⚠ Could not extract certificate name"
+                update_dialog "⚠ Error extracting certificate name"
                 return 1
             fi
         else
-            log_message "   ✓ Certificado MS-ORGANIZATION-ACCESS não encontrado"
-            update_dialog "✅ Certificado não encontrado"
+            log_message "   ✓ MS-ORGANIZATION-ACCESS certificate not found"
+            update_dialog "✅ Certificate not found"
             return 0
         fi
     else
-        log_message "   ✓ Nenhum certificado encontrado no keychain"
-        update_dialog "✅ Keychain vazio"
+        log_message "   ✓ No certificates found in keychain"
+        update_dialog "✅ Keychain empty"
         return 0
     fi
 }
@@ -130,11 +116,10 @@ delete_ms_organization_access() {
 ###############################################################################
 # MAIN
 ###############################################################################
-
 delete_ms_organization_access
 
 log_message "========================================="
-log_message "✓ VERIFICAÇÃO CONCLUÍDA"
+log_message "✓ CERTIFICATE CHECK COMPLETE"
 log_message "========================================="
 
 exit 0

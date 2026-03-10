@@ -2,66 +2,47 @@
 
 ###############################################################################
 # pos_migracao.sh
-# Pós-migração: Limpeza e finalização
+# Post-migration: cleanup and finalization
 #
-# Autor: Assistente de Migração Globo
-# Versão: 1.0
-# Data: 2025-11-12
-#
-# Descrição:
-#   Script de finalização executado após migração bem-sucedida.
-#   Realiza limpeza de arquivos temporários, atualiza inventário do Jamf
-#   e registra conclusão da migração.
+# Version: 1.0
 #
 # Exit Codes:
-#   0 - Sucesso (finalização concluída)
-#   1 - Erro (não está rodando como root)
+#   0 - Success
+#   1 - Not running as root
 ###############################################################################
 
-# Variáveis
-readonly BASE_DIR="/Library/Application Support/Assistente de Migracao"
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+readonly COMPANY_NAME="ACME" # <── change this
+readonly BASE_DIR="/Library/Application Support/${COMPANY_NAME} MDM Migration"
+# ──────────────────────────────────────────────────────────────────────────────
+
 readonly BIN_DIR="${BASE_DIR}/bin"
 readonly LOGS_DIR="${BASE_DIR}/logs"
-readonly MAIN_LOG="${LOGS_DIR}/migracao.log"
+readonly MAIN_LOG="${LOGS_DIR}/migration.log"
 readonly STATE_FILE="${BASE_DIR}/migration_state.json"
 readonly DIALOG_LOG="/var/tmp/dialog_migration.log"
 readonly JAMF_BINARY="/usr/local/bin/jamf"
 
-# Variável para jq (herdada ou detectada)
 JQ_BIN="${JQ_BIN:-}"
 
-# Criar diretório de logs se não existir
 if [[ ! -d "${LOGS_DIR}" ]]; then
     mkdir -p "${LOGS_DIR}"
 fi
 
-###############################################################################
-# FUNÇÃO: Logging
-###############################################################################
 log_message() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo "[${timestamp}] $1" | tee -a "${MAIN_LOG}"
 }
 
-###############################################################################
-# FUNÇÃO: Atualizar Dialog (item index 4)
-###############################################################################
 update_dialog() {
     local statustext="$1"
-
     if [[ -f "${DIALOG_LOG}" ]]; then
         echo "listitem: index: 4, statustext: ${statustext}" >>"${DIALOG_LOG}"
     fi
 }
 
-###############################################################################
-# FUNÇÃO: Detectar jq se necessário
-###############################################################################
 detect_jq_if_needed() {
-    if [[ -n "${JQ_BIN}" ]] && [[ -f "${JQ_BIN}" ]]; then
-        return 0
-    fi
-
+    if [[ -n "${JQ_BIN}" ]] && [[ -f "${JQ_BIN}" ]]; then return 0; fi
     local arch=$(uname -m)
     if [[ "$arch" == "arm64" ]]; then
         JQ_BIN="${BASE_DIR}/bin/jq-macos-arm64"
@@ -70,7 +51,6 @@ detect_jq_if_needed() {
     else
         return 1
     fi
-
     if [[ -f "${JQ_BIN}" ]]; then
         chmod +x "${JQ_BIN}" 2>/dev/null || true
         return 0
@@ -79,57 +59,50 @@ detect_jq_if_needed() {
 }
 
 ###############################################################################
-# INICIALIZAÇÃO
+# INITIALIZATION
 ###############################################################################
-
 log_message "========================================="
-log_message "PÓS-MIGRAÇÃO - FINALIZAÇÃO"
+log_message "POST-MIGRATION FINALIZATION"
 log_message "========================================="
 
-# Verificar se está rodando como root
 if [[ $EUID -ne 0 ]]; then
-    log_message "✗ Este script precisa ser executado como root"
+    log_message "✗ This script must be run as root"
     exit 1
 fi
 
-# Detectar jq se necessário
 detect_jq_if_needed
 
 ###############################################################################
-# FUNÇÃO: Executar Jamf recon (atualizar inventário)
+# FUNCTION: Run jamf recon
 ###############################################################################
 run_jamf_recon() {
     log_message ""
-    log_message "Atualizando inventário do Jamf..."
-    update_dialog "📊 Atualizando inventário do Jamf..."
+    log_message "Updating Jamf inventory..."
+    update_dialog "📊 Updating Jamf inventory..."
 
     if [[ ! -f "${JAMF_BINARY}" ]]; then
-        log_message "⚠ Binário Jamf não encontrado: ${JAMF_BINARY}"
-        log_message "   Inventário será atualizado automaticamente pelo Jamf"
+        log_message "⚠ Jamf binary not found — inventory will update automatically"
         return 0
     fi
 
-    # Executar recon
     if "${JAMF_BINARY}" recon 2>&1 | tee -a "${MAIN_LOG}"; then
-        log_message "✓ Inventário atualizado com sucesso"
+        log_message "✓ Inventory updated successfully"
         return 0
     else
-        log_message "⚠ Falha ao atualizar inventário (não crítico)"
+        log_message "⚠ Failed to update inventory (non-critical)"
         return 1
     fi
 }
 
 ###############################################################################
-# FUNÇÃO: Limpar arquivos temporários
+# FUNCTION: Clean temporary files
 ###############################################################################
 cleanup_temp_files() {
     log_message ""
-    log_message "Limpando arquivos temporários..."
-    update_dialog "🧹 Limpando arquivos temporários..."
+    log_message "Cleaning temporary files..."
+    update_dialog "🧹 Cleaning temporary files..."
 
     local cleaned=0
-
-    # Remover arquivos temporários específicos
     local temp_files=(
         "/private/tmp/com.jamf*"
         "/private/tmp/InstallationCheck*"
@@ -139,60 +112,55 @@ cleanup_temp_files() {
     for pattern in "${temp_files[@]}"; do
         if compgen -G "$pattern" >/dev/null 2>&1; then
             rm -f $pattern 2>/dev/null && ((cleaned++))
-            log_message "   ✓ Removido: ${pattern}"
+            log_message "   ✓ Removed: ${pattern}"
         fi
     done
 
     if [[ $cleaned -gt 0 ]]; then
-        log_message "✓ ${cleaned} arquivo(s) temporário(s) removido(s)"
+        log_message "✓ ${cleaned} temporary file(s) removed"
     else
-        log_message "✓ Nenhum arquivo temporário encontrado"
+        log_message "✓ No temporary files found"
     fi
 }
 
 ###############################################################################
-# FUNÇÃO: Rotacionar logs antigos (manter últimos 7 dias)
+# FUNCTION: Rotate old logs
 ###############################################################################
 rotate_old_logs() {
     log_message ""
-    log_message "Verificando logs antigos..."
-    update_dialog "📋 Verificando logs..."
+    log_message "Checking log rotation..."
+    update_dialog "📋 Checking logs..."
 
-    # Rotacionar log principal se maior que 10MB
     if [[ -f "${MAIN_LOG}" ]]; then
         local log_size=$(stat -f%z "${MAIN_LOG}" 2>/dev/null || echo 0)
-        local max_size=$((10 * 1024 * 1024)) # 10MB em bytes
+        local max_size=$((10 * 1024 * 1024)) # 10 MB
 
         if [[ $log_size -gt $max_size ]]; then
             local timestamp=$(date '+%Y%m%d_%H%M%S')
             local archived_log="${MAIN_LOG}.${timestamp}"
-
             cp "${MAIN_LOG}" "${archived_log}"
             echo "" >"${MAIN_LOG}"
-
-            log_message "✓ Log rotacionado: $(basename ${archived_log})"
+            log_message "✓ Log rotated: $(basename ${archived_log})"
         fi
     fi
 
-    # Remover logs arquivados com mais de 7 dias
     find "${LOGS_DIR}" -name "*.log.*" -type f -mtime +7 -delete 2>/dev/null
-    log_message "✓ Logs antigos verificados (mantidos últimos 7 dias)"
+    log_message "✓ Old logs checked (keeping last 7 days)"
 }
 
 ###############################################################################
-# FUNÇÃO: Atualizar arquivo de estado final
+# FUNCTION: Update final state
 ###############################################################################
 update_final_state() {
     if [[ ! -f "${STATE_FILE}" ]]; then
-        log_message "⚠ Arquivo de estado não encontrado"
+        log_message "⚠ State file not found"
         return 0
     fi
 
     log_message ""
-    log_message "Atualizando estado final da migração..."
-    update_dialog "💾 Salvando estado..."
+    log_message "Updating final migration state..."
+    update_dialog "💾 Saving final state..."
 
-    # Adicionar data de conclusão e status final
     if [[ -n "${JQ_BIN}" ]] && [[ -f "${JQ_BIN}" ]]; then
         local temp_file="${STATE_FILE}.tmp"
         local completion_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -204,116 +172,93 @@ update_final_state() {
 
         if [[ -f "${temp_file}" ]]; then
             mv "${temp_file}" "${STATE_FILE}"
-            log_message "✓ Estado final atualizado"
+            log_message "✓ Final state updated"
         fi
     else
-        # Fallback: sed
         sed -i '' 's/"migration_status": "[^"]*"/"migration_status": "completed"/' "${STATE_FILE}" 2>/dev/null
-        log_message "✓ Estado final atualizado (via sed)"
+        log_message "✓ Final state updated (via sed)"
     fi
 }
 
 ###############################################################################
-# FUNÇÃO: Verificar enrollment final
+# FUNCTION: Verify final enrollment
 ###############################################################################
 verify_final_enrollment() {
     log_message ""
-    log_message "Verificando enrollment final..."
-    update_dialog "✅ Verificando enrollment..."
+    log_message "Verifying final enrollment..."
+    update_dialog "✅ Verifying enrollment..."
 
-    # Verificar perfil MDM
     local mdm_enrollment
     mdm_enrollment=$(/usr/bin/profiles status -type enrollment 2>/dev/null)
 
     if echo "${mdm_enrollment}" | grep -q "MDM enrollment: Yes"; then
         local mdm_server
         mdm_server=$(echo "${mdm_enrollment}" | grep "MDM server:" | cut -d: -f2- | xargs)
-
-        log_message "✓ Enrollment verificado:"
-        log_message "   MDM ativo: Sim"
-        log_message "   Servidor: ${mdm_server}"
+        log_message "✓ Enrollment verified:"
+        log_message "   MDM active: Yes"
+        log_message "   Server: ${mdm_server}"
 
         if echo "${mdm_server}" | grep -qi "jamf"; then
-            log_message "   ✓ Confirmado: Jamf Pro"
+            log_message "   ✓ Confirmed: Jamf Pro"
             return 0
         else
-            log_message "   ⚠ Servidor MDM não é Jamf: ${mdm_server}"
+            log_message "   ⚠ MDM server is not Jamf: ${mdm_server}"
             return 1
         fi
     else
-        log_message "⚠ MDM não está ativo - pode ainda estar finalizando enrollment"
+        log_message "⚠ MDM not yet active — enrollment may still be finalizing"
         return 1
     fi
 }
 
 ###############################################################################
-# FUNÇÃO: Exibir resumo final
+# FUNCTION: Print summary
 ###############################################################################
 show_summary() {
     log_message ""
     log_message "========================================="
-    log_message "RESUMO DA MIGRAÇÃO"
+    log_message "MIGRATION SUMMARY"
     log_message "========================================="
 
-    # Ler informações do arquivo de estado
     if [[ -f "${STATE_FILE}" ]] && [[ -n "${JQ_BIN}" ]] && [[ -f "${JQ_BIN}" ]]; then
         local os_version=$("${JQ_BIN}" -r '.os_version // "N/A"' "${STATE_FILE}")
         local validation_date=$("${JQ_BIN}" -r '.validation_date // "N/A"' "${STATE_FILE}")
         local mdm_type=$("${JQ_BIN}" -r '.mdm_type // "N/A"' "${STATE_FILE}")
-
-        log_message "   macOS: ${os_version}"
-        log_message "   Data início: ${validation_date}"
-        log_message "   MDM atual: ${mdm_type}"
+        log_message "   macOS:       ${os_version}"
+        log_message "   Start date:  ${validation_date}"
+        log_message "   Current MDM: ${mdm_type}"
     fi
 
-    # Obter informações do Mac
     local serial=$(system_profiler SPHardwareDataType | awk '/Serial/ {print $4}')
     local computer_name=$(scutil --get ComputerName 2>/dev/null || hostname)
-
-    log_message "   Computador: ${computer_name}"
-    log_message "   Serial: ${serial}"
+    log_message "   Computer: ${computer_name}"
+    log_message "   Serial:   ${serial}"
     log_message ""
-    log_message "✓ Migração concluída com sucesso!"
-    log_message "   O Mac foi migrado do Intune para o Jamf Pro."
-    log_message ""
-    log_message "Próximos passos:"
-    log_message "   1. Políticas do Jamf serão aplicadas automaticamente"
-    log_message "   2. Aguarde ~10 minutos para sincronização completa"
-    log_message "   3. Reinicie o Mac se solicitado por políticas"
+    log_message "✓ Migration completed successfully!"
+    log_message "   Next steps:"
+    log_message "   1. Jamf policies will be applied automatically"
+    log_message "   2. Allow ~10 minutes for full synchronization"
+    log_message "   3. Restart if prompted by a Jamf policy"
     log_message "========================================="
 }
 
 ###############################################################################
-# MAIN - EXECUÇÃO PRINCIPAL
+# MAIN
 ###############################################################################
-
-# 1. Executar Jamf recon
 run_jamf_recon
-
-# 2. Limpar arquivos temporários
 cleanup_temp_files
-
-# 3. Rotacionar logs antigos
 rotate_old_logs
-
-# 4. Atualizar estado final
 update_final_state
-
-# 5. Verificar enrollment final
 verify_final_enrollment
-
-# 6. Exibir resumo
 show_summary
 
-# 7. Conclusão
-update_dialog "✅ Finalização concluída"
+update_dialog "✅ Finalization complete"
 
 log_message ""
-log_message "Agendando autoeliminação da pasta do assistente em 10 segundos..."
-update_dialog "🗑️ Agendando limpeza da pasta do assistente..."
+log_message "Scheduling self-removal of migration folder in 10 seconds..."
+update_dialog "🗑️ Scheduling cleanup..."
 
-# Notificar conclusão
-"${BIN_DIR}/notificar_teams.sh" "concluido" &
+"${BIN_DIR}/notificar_teams.sh" "completed" &
 sleep 5
 
 cd "/private/tmp"
@@ -322,8 +267,8 @@ sleep 5
 
 log_message ""
 log_message "========================================="
-log_message "✓ PÓS-MIGRAÇÃO CONCLUÍDA"
-log_message "Tempo total de migração: ~$((SECONDS / 60)) minuto(s)"
+log_message "✓ POST-MIGRATION COMPLETE"
+log_message "Total migration time: ~$((SECONDS / 60)) minute(s)"
 log_message "========================================="
 
 exit 0
