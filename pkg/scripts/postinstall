@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 ##
 ## postinstall
 ##
@@ -10,24 +11,29 @@
 ##
 ## ── IMPORTANT ─────────────────────────────────────────────────────────────────
 ## The client_secret below must be rotated before each deployment.
-## Never commit the real secret to the repos itory — use a placeholder here
+## Never commit the real secret to the repository — use a placeholder here
 ## and inject the actual value through your secrets management pipeline
 ## (Jamf parameter, CI/CD variable, etc.) before building the PKG.
+##
+## WHEN CUSTOMIZING THIS FILE:
+##   COMPANY_NAME  → must match bin/config.sh
+##   PLIST_NAME    → must match the Label in pkg/LaunchDaemon/*.plist
+##   KEYCHAIN_*    → must match bin/config.sh
 ## ─────────────────────────────────────────────────────────────────────────────
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
-readonly COMPANY_NAME="ACME"                                          # <── change this
+readonly COMPANY_NAME="ACME"                                          # <── match bin/config.sh
 readonly BASE_DIR="/Library/Application Support/${COMPANY_NAME} MDM Migration"
-readonly PLIST_NAME="com.acme.mdm.migration"                          # <── match your plist Label
+readonly PLIST_NAME="com.acme.mdm-migration"                          # <── match plist Label
 readonly PLIST_PATH="/Library/LaunchDaemons/${PLIST_NAME}.plist"
 
 # Intune App Registration — client_secret
 # Replace with your actual secret (or inject via CI/CD pipeline)
 INTUNE_SECRET="YOUR_CLIENT_SECRET_HERE"                               # <── change this
 
-# Keychain identifiers — must match remover_intune.sh
-readonly KEYCHAIN_SERVICE="MDMMigrationService"                       # <── change this
-readonly KEYCHAIN_ACCOUNT="IntuneAuth"                                # <── change this
+# Keychain identifiers — must match bin/config.sh
+readonly KEYCHAIN_SERVICE="MDMMigrationService"                       # <── match bin/config.sh
+readonly KEYCHAIN_ACCOUNT="IntuneAuth"                                # <── match bin/config.sh
 # ──────────────────────────────────────────────────────────────────────────────
 
 echo "[postinstall] Starting post-installation..."
@@ -36,26 +42,17 @@ echo "[postinstall] Starting post-installation..."
 # STEP 1 — Set permissions on LaunchDaemon plist
 ###############################################################################
 echo "[postinstall] Setting permissions on LaunchDaemon plist..."
-
 chmod 644 "${PLIST_PATH}"
 chown root:wheel "${PLIST_PATH}"
-
 echo "[postinstall] ✓ Plist permissions set"
 
 ###############################################################################
 # STEP 2 — Set execute permissions on all scripts and jq binaries
 ###############################################################################
 echo "[postinstall] Setting execute permissions on scripts..."
-
 chmod +x "${BASE_DIR}/bin/"*.sh
-
-if [[ -f "${BASE_DIR}/bin/jq-macos-arm64" ]]; then
-    chmod +x "${BASE_DIR}/bin/jq-macos-arm64"
-fi
-if [[ -f "${BASE_DIR}/bin/jq-macos-amd64" ]]; then
-    chmod +x "${BASE_DIR}/bin/jq-macos-amd64"
-fi
-
+[[ -f "${BASE_DIR}/bin/jq-macos-arm64" ]] && chmod +x "${BASE_DIR}/bin/jq-macos-arm64"
+[[ -f "${BASE_DIR}/bin/jq-macos-amd64" ]] && chmod +x "${BASE_DIR}/bin/jq-macos-amd64"
 echo "[postinstall] ✓ Permissions set"
 
 ###############################################################################
@@ -70,19 +67,16 @@ echo "[postinstall] Injecting Intune credentials into System Keychain..."
     /Library/Keychains/System.keychain 2>/dev/null || true
 
 # Store the secret
-/usr/bin/security add-generic-password \
+if ! /usr/bin/security add-generic-password \
     -a "${KEYCHAIN_ACCOUNT}" \
     -s "${KEYCHAIN_SERVICE}" \
     -w "${INTUNE_SECRET}" \
     -T "/usr/bin/security" \
-    /Library/Keychains/System.keychain
-
-if [[ $? -eq 0 ]]; then
-    echo "[postinstall] ✓ Credentials stored in System Keychain"
-else
+    /Library/Keychains/System.keychain; then
     echo "[postinstall] ✗ Failed to store credentials" >&2
     exit 1
 fi
+echo "[postinstall] ✓ Credentials stored in System Keychain"
 
 ###############################################################################
 # STEP 4 — Register and start the LaunchDaemon
@@ -93,14 +87,11 @@ echo "[postinstall] Registering LaunchDaemon..."
 /bin/launchctl bootout system "${PLIST_PATH}" 2>/dev/null || true
 
 # Bootstrap (register + start) — RunAtLoad=true will execute the migration
-/bin/launchctl bootstrap system "${PLIST_PATH}"
-
-if [[ $? -eq 0 ]]; then
-    echo "[postinstall] ✓ LaunchDaemon registered and started"
-else
+if ! /bin/launchctl bootstrap system "${PLIST_PATH}"; then
     echo "[postinstall] ✗ Failed to register LaunchDaemon" >&2
     exit 1
 fi
+echo "[postinstall] ✓ LaunchDaemon registered and started"
 
 echo "[postinstall] ✓ Post-installation complete"
 # macOS deletes this script automatically after installation

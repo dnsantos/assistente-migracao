@@ -1,9 +1,10 @@
 #!/bin/bash
+set -euo pipefail
 ##
 ## cleanup.sh
 ##
 ## Self-destruct script — removes all migration artifacts after the process
-## completes. Called asynchronously by pos_migracao.sh via nohup so that it
+## completes. Called asynchronously by post_migration.sh via nohup so that it
 ## runs after the main script has already exited.
 ##
 ## Removes:
@@ -12,9 +13,13 @@
 ##   - Itself (this script, staged in /private/tmp/)
 ##
 ## ── CONFIGURATION ─────────────────────────────────────────────────────────────
-readonly COMPANY_NAME="ACME"                                          # <── change this
+## COMPANY_NAME and PLIST_NAME must match bin/config.sh and the plist Label.
+## ─────────────────────────────────────────────────────────────────────────────
+
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+readonly COMPANY_NAME="ACME"                                          # <── match bin/config.sh
 readonly BASE_DIR="/Library/Application Support/${COMPANY_NAME} MDM Migration"
-readonly PLIST_NAME="com.acme.mdm.migration"                          # <── match your plist Label
+readonly PLIST_NAME="com.acme.mdm-migration"                          # <── match plist Label
 readonly PLIST_PATH="/Library/LaunchDaemons/${PLIST_NAME}.plist"
 # ──────────────────────────────────────────────────────────────────────────────
 

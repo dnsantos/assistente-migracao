@@ -104,8 +104,8 @@ read_previous_status() {
     if [[ -n "${JQ_BIN:-}" ]] && [[ -f "${JQ_BIN}" ]]; then
         "${JQ_BIN}" -r '.migration_status // empty' "${STATE_FILE}" 2>/dev/null || echo ""
     else
-        grep -o '"migration_status": *"[^"]*"' "${STATE_FILE}" 2>/dev/null |
-            cut -d'"' -f4 || echo ""
+        grep -o '"migration_status": *"[^"]*"' "${STATE_FILE}" 2>/dev/null \
+            | cut -d'"' -f4 || echo ""
     fi
 }
 
@@ -131,79 +131,76 @@ fi
 
 case "${PREVIOUS_STATUS}" in
 
-completed)
-    log_message "✓ Migration already completed — nothing to do"
-    exit 0
-    ;;
+    completed)
+        log_message "✓ Migration already completed — nothing to do"
+        exit 0
+        ;;
 
-jamf_enrolled)
-    log_message "↩ Resuming from Step 5 (Jamf already enrolled — running post-migration)"
-    log_message ""
+    jamf_enrolled)
+        log_message "↩ Resuming from Step 5 (Jamf already enrolled — running post-migration)"
+        log_message ""
 
-    check_dialog && start_migration_dialog && sleep 2
-    update_list_item 0 "success" "Resumed"
-    update_list_item 1 "success" "Resumed"
-    update_list_item 2 "success" "Resumed"
-    update_list_item 3 "success" "Jamf enrollment confirmed"
-    update_list_item 4 "wait" "Running final cleanup..."
+        check_dialog && start_migration_dialog && sleep 2
+        update_list_item 0 "success" "Resumed"
+        update_list_item 1 "success" "Resumed"
+        update_list_item 2 "success" "Resumed"
+        update_list_item 3 "success" "Jamf enrollment confirmed"
+        update_list_item 4 "wait" "Running final cleanup..."
 
-    log_message "Step 5/5: Finalizing migration..."
-    [[ -f "${BIN_DIR}/post_migration.sh" ]] && "${BIN_DIR}/post_migration.sh"
-    update_list_item 4 "success" "Done"
-    finish_migration_dialog 0 "All steps completed successfully!"
-    exit 0
-    ;;
+        log_message "Step 5/5: Finalizing migration..."
+        [[ -f "${BIN_DIR}/post_migration.sh" ]] && "${BIN_DIR}/post_migration.sh"
+        update_list_item 4 "success" "Done"
+        finish_migration_dialog 0 "All steps completed successfully!"
+        exit 0
+        ;;
 
-intune_removed)
-    log_message "↩ Resuming from Step 4 (Intune already removed — enrolling in Jamf)"
-    log_message ""
+    intune_removed)
+        log_message "↩ Resuming from Step 4 (Intune already removed — enrolling in Jamf)"
+        log_message ""
 
-    check_dialog && start_migration_dialog && sleep 2
-    update_list_item 0 "success" "Resumed"
-    update_list_item 1 "success" "Resumed"
-    update_list_item 2 "success" "Intune removed"
+        check_dialog && start_migration_dialog && sleep 2
+        update_list_item 0 "success" "Resumed"
+        update_list_item 1 "success" "Resumed"
+        update_list_item 2 "success" "Intune removed"
 
-    # Fall through to Step 4
-    log_message "Step 4/5: Enrolling in Jamf Pro..."
-    update_list_item 3 "wait" "Preparing Jamf enrollment..."
+        # Fall through to Step 4
+        log_message "Step 4/5: Enrolling in Jamf Pro..."
+        update_list_item 3 "wait" "Preparing Jamf enrollment..."
 
-    if [[ -f "${BIN_DIR}/install_jamf.sh" ]]; then
-        set +e
-        "${BIN_DIR}/install_jamf.sh"
-        JAMF_RESULT=$?
-        set -e
-        if [[ $JAMF_RESULT -ne 0 ]]; then
-            log_message "✗ Failed to enroll in Jamf"
-            update_list_item 3 "fail" "Jamf enrollment failed"
-            finish_migration_dialog 1 "Could not enroll the Mac in Jamf Pro"
-            "${BIN_DIR}/notify_teams.sh" "failure" "Could not enroll the Mac in Jamf Pro" &
+        if [[ -f "${BIN_DIR}/install_jamf.sh" ]]; then
+            set +e; "${BIN_DIR}/install_jamf.sh"; JAMF_RESULT=$?; set -e
+            if [[ $JAMF_RESULT -ne 0 ]]; then
+                log_message "✗ Failed to enroll in Jamf"
+                update_list_item 3 "fail" "Jamf enrollment failed"
+                finish_migration_dialog 1 "Could not enroll the Mac in Jamf Pro"
+                "${BIN_DIR}/notify_teams.sh" "failure" "Could not enroll the Mac in Jamf Pro" &
+                exit 4
+            fi
+            update_list_item 3 "success" "Jamf enrollment successful"
+        else
+            log_message "✗ install_jamf.sh not found"
+            update_list_item 3 "error" "Script not found"
+            finish_migration_dialog 1 "Jamf enrollment script not found"
+            "${BIN_DIR}/notify_teams.sh" "failure" "Jamf enrollment script not found" &
             exit 4
         fi
-        update_list_item 3 "success" "Jamf enrollment successful"
-    else
-        log_message "✗ install_jamf.sh not found"
-        update_list_item 3 "error" "Script not found"
-        finish_migration_dialog 1 "Jamf enrollment script not found"
-        "${BIN_DIR}/notify_teams.sh" "failure" "Jamf enrollment script not found" &
-        exit 4
-    fi
 
-    log_message "Step 5/5: Finalizing migration..."
-    update_list_item 4 "wait" "Running final cleanup..."
-    [[ -f "${BIN_DIR}/post_migration.sh" ]] && "${BIN_DIR}/post_migration.sh"
-    update_list_item 4 "success" "Done"
-    finish_migration_dialog 0 "All steps completed successfully!"
-    exit 0
-    ;;
+        log_message "Step 5/5: Finalizing migration..."
+        update_list_item 4 "wait" "Running final cleanup..."
+        [[ -f "${BIN_DIR}/post_migration.sh" ]] && "${BIN_DIR}/post_migration.sh"
+        update_list_item 4 "success" "Done"
+        finish_migration_dialog 0 "All steps completed successfully!"
+        exit 0
+        ;;
 
-needs_migration | no_mdm_enroll_jamf | "")
-    # Normal flow — start from Step 1
-    log_message "Starting full migration flow..."
-    ;;
+    needs_migration|no_mdm_enroll_jamf|"")
+        # Normal flow — start from Step 1
+        log_message "Starting full migration flow..."
+        ;;
 
-*)
-    log_message "⚠ Unrecognized previous status '${PREVIOUS_STATUS}' — starting from Step 1"
-    ;;
+    *)
+        log_message "⚠ Unrecognized previous status '${PREVIOUS_STATUS}' — starting from Step 1"
+        ;;
 esac
 
 ###############################################################################
@@ -227,6 +224,9 @@ else
     log_message "Follow progress in: ${MAIN_LOG}"
 fi
 
+# Notify Teams that migration has started
+"${BIN_DIR}/notify_teams.sh" "started" &
+
 ###############################################################################
 # STEP 1: VALIDATION
 ###############################################################################
@@ -242,10 +242,7 @@ if [[ ! -f "${BIN_DIR}/validate.sh" ]]; then
     exit 1
 fi
 
-set +e
-"${BIN_DIR}/validate.sh"
-VALIDATION_RESULT=$?
-set -e
+set +e; "${BIN_DIR}/validate.sh"; VALIDATION_RESULT=$?; set -e
 
 if [[ $VALIDATION_RESULT -eq 0 ]]; then
     log_message "Mac is already in Jamf — running post-migration only"
@@ -270,9 +267,9 @@ elif [[ $VALIDATION_RESULT -eq 20 ]]; then
     update_list_item 1 "success" "Not required"
     update_list_item 2 "wait" "Removing Microsoft certificates..."
     if [[ -f "${BIN_DIR}/clean_certificates.sh" ]]; then
-        "${BIN_DIR}/clean_certificates.sh" &&
-            update_list_item 2 "success" "Certificates removed" ||
-            update_list_item 2 "success" "Checked (with warnings)"
+        "${BIN_DIR}/clean_certificates.sh" \
+            && update_list_item 2 "success" "Certificates removed" \
+            || update_list_item 2 "success" "Checked (with warnings)"
     else
         update_list_item 2 "success" "Not available"
     fi
@@ -296,10 +293,7 @@ if [[ $VALIDATION_RESULT -ne 20 ]]; then
     update_list_item 1 "wait" "Installing swiftDialog..."
 
     if [[ -f "${BIN_DIR}/install_dependencies.sh" ]]; then
-        set +e
-        "${BIN_DIR}/install_dependencies.sh"
-        DEP_RESULT=$?
-        set -e
+        set +e; "${BIN_DIR}/install_dependencies.sh"; DEP_RESULT=$?; set -e
 
         if [[ $DEP_RESULT -ne 0 ]]; then
             log_message "✗ Failed to install dependencies"
@@ -336,10 +330,7 @@ if [[ $VALIDATION_RESULT -eq 10 ]]; then
     update_list_item 2 "wait" "Connecting to Intune..."
 
     if [[ -f "${BIN_DIR}/remove_intune.sh" ]]; then
-        set +e
-        "${BIN_DIR}/remove_intune.sh"
-        REMOVE_RESULT=$?
-        set -e
+        set +e; "${BIN_DIR}/remove_intune.sh"; REMOVE_RESULT=$?; set -e
 
         if [[ $REMOVE_RESULT -ne 0 ]]; then
             log_message "✗ Failed to remove Intune (code: ${REMOVE_RESULT})"
@@ -365,8 +356,8 @@ elif [[ $VALIDATION_RESULT -eq 20 ]]; then
     log_message "Step 3/5: Cleaning residual Microsoft certificates..."
     update_list_item 2 "wait" "Removing Microsoft certificates..."
     if [[ -f "${BIN_DIR}/clean_certificates.sh" ]]; then
-        "${BIN_DIR}/clean_certificates.sh" &&
-            update_list_item 2 "success" "Certificates removed" || true
+        "${BIN_DIR}/clean_certificates.sh" \
+            && update_list_item 2 "success" "Certificates removed" || true
     else
         update_list_item 2 "success" "Not available"
     fi
@@ -380,10 +371,7 @@ log_message "Step 4/5: Enrolling in Jamf Pro..."
 update_list_item 3 "wait" "Preparing Jamf enrollment..."
 
 if [[ -f "${BIN_DIR}/install_jamf.sh" ]]; then
-    set +e
-    "${BIN_DIR}/install_jamf.sh"
-    JAMF_RESULT=$?
-    set -e
+    set +e; "${BIN_DIR}/install_jamf.sh"; JAMF_RESULT=$?; set -e
 
     if [[ $JAMF_RESULT -ne 0 ]]; then
         log_message "✗ Failed to enroll in Jamf"

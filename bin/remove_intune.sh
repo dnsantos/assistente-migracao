@@ -222,9 +222,14 @@ load_credentials  || exit 1
 get_graph_token   || exit 1
 find_device       || exit 2
 retire_device     || exit 3
+
+# Write resume checkpoint immediately after retire is accepted by Microsoft.
+# This ensures that if the Mac restarts during the monitoring loop,
+# main.sh will resume at Step 4 instead of retrying the retire call.
+update_state "migration_status" "intune_removed"
+
 monitor_mdm_removal || exit 4
 cleanup_intune_components
-update_state "migration_status" "intune_removed"
 
 send_dialog "listitem: index: 2, statustext: ✅ Intune removed successfully"
 log_message "========================================="
