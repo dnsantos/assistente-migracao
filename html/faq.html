@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FAQ | Apple na Globo</title>
+  <meta name="description" content="Perguntas frequentes sobre a migração e novas políticas do ambiente Apple Globo.">
+  <style>
+    :root {
+      --font-family: 'Globotipo Texto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+      --primary-color: #1a1a1a;
+      --accent-color: #0071e3;
+      --background-color: #f5f6fb;
+      --menu-background: #fff;
+      --border-radius: 18px;
+      --shadow-menu: 0 4px 24px rgba(0, 80, 200, 0.08);
+      --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    body {
+      margin: 0;
+      background: var(--background-color);
+      color: var(--primary-color);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      scroll-padding-top: 80px;
+    }
+
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--menu-background);
+      box-shadow: var(--shadow-menu);
+      z-index: 100;
+      padding: 0 24px;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      border-bottom: 1px solid #ebebef;
+    }
+
+    nav .logo {
+      height: 90px;
+      margin-right: 22px;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      gap: 32px;
+    }
+
+    nav ul li a {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 1rem;
+      transition: color .2s;
+    }
+
+    nav ul li a:hover,
+    nav ul li a.active {
+      color: var(--accent-color);
+    }
+
+    .faq-header {
+      max-width: 800px;
+      margin: 120px auto 36px auto;
+      text-align: left;
+    }
+
+    .faq-title {
+      font-size: 2rem;
+      color: var(--accent-color);
+      font-weight: 700;
+    }
+
+    .faq-desc {
+      font-size: 1.13rem;
+      margin-top: 12px;
+      color: #333;
+      margin-bottom: 32px;
+    }
+
+    .faq-list {
+      max-width: 800px;
+      margin: 0 auto 60px auto;
+    }
+
+    .faq-item {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 18px;
+      padding: 22px 26px 20px 26px;
+      transition: box-shadow 0.21s;
+      border-left: 6px solid var(--accent-color);
+    }
+
+    .faq-question {
+      font-size: 1.12rem;
+      color: var(--accent-color);
+      font-weight: bold;
+      margin-bottom: 7px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .faq-answer {
+      font-size: 1.04rem;
+      color: #333;
+      line-height: 1.7;
+      display: none;
+      margin-top: 5px;
+    }
+
+    .faq-item.active .faq-answer {
+      display: block;
+      animation: answerFade 0.18s;
+    }
+
+    @keyframes answerFade {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 600px) {
+
+      .faq-header,
+      .faq-list {
+        margin-left: 10px;
+        margin-right: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <nav>
+    <img src="./images/logo_globo.png" class="logo">
+    <ul>
+      <li><a href="index.html">Início</a></li>
+      <li><a href="novidades.html">O que vai mudar?</a></li>
+      <li><a href="beneficios.html">Beneficios</a></li>
+      <li><a href="faq.html" class="active" style="color:#0071e3">FAQ</a></li>
+    </ul>
+  </nav>
+  <section class="faq-header">
+    <div class="faq-title">Perguntas frequentes (FAQ)</div>
+    <div class="faq-desc">
+      Tire suas dúvidas sobre o novo ambiente Apple, Jamf Connect, bloqueios, privilégios de admin e políticas de
+      segurança.
+      Se não encontrar o que procura, acione o suporte.
+    </div>
+  </section>
+  <section class="faq-list">
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        Como faço login após a migração?
+      </div>
+      <div class="faq-answer">
+        O login será feito via Jamf Connect, com as mesmas credenciais usadas nos serviços da Globo/Microsoft. Se sua
+        senha precisa ser ajustada (por ser longa ou conter caracteres especiais), altere antes do próximo login.
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        Não sou mais admin no meu Mac, como faço para instalar apps?
+      </div>
+      <div class="faq-answer">
+        <p>
+          A administração será concedida temporariamente via Jamf Connect, sempre que você precisar instalar aplicativos
+          ou mudar configurações avançadas. Basta pedir elevação no menu do Jamf Connect!
+        </p>
+        <video controls playsinline muted preload="metadata" style="width:100%;border-radius:12px;margin-bottom:10px;">
+          <source src="./images/request_admin.mov" type="video/mp4">
+          Seu navegador não suporta vídeo HTML5.
+        </video>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        O que acontece se tentar conectar um pendrive ou HD externo?
+      </div>
+      <div class="faq-answer">
+        <p>
+          Dispositivos externos USB não autorizados serão bloqueados automaticamente, protegendo seu Mac e os dados da
+          Globo. Se precisar de acesso especial, solicite à TI.
+        </p>
+        <div class="faq-answer">
+          <img src="./images/usb_block_message.png" alt="Exemplo visual do procedimento"
+            style="max-width:100%;border-radius:12px;box-shadow:0 2px 8px #d8d8d8;margin-bottom:10px;">
+        </div>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        Meu papel de parede mudou, posso trocar?
+      </div>
+      <div class="faq-answer">
+        <p>
+          O papel de parede padrão será definido pela Globo para reforçar a identidade da empresa. Mudanças
+          personalizadas estão bloqueadas por política.
+        </p>
+        <div class="faq-answer">
+          <img src="./images/wallpaper.png" alt="Exemplo visual do procedimento"
+            style="max-width:100%;border-radius:12px;box-shadow:0 2px 8px #d8d8d8;margin-bottom:10px;">
+        </div>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        Perdi o acesso ao Mac ou não lembro a senha. O que faço?
+      </div>
+      <div class="faq-answer">
+        <p>
+          Sua senha será a mesma do Microsoft/Globo. Caso esqueça, altere pelo portal de senhas Microsoft
+          (Office/Outlook)
+          e reinicie o Mac, ou procure o suporte.
+        </p>
+        <div class="faq-answer">
+          <img src="./images/password_sync.png" alt="Exemplo visual do procedimento"
+            style="max-width:100%;border-radius:12px;box-shadow:0 2px 8px #d8d8d8;margin-bottom:10px;">
+        </div>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        Outros bloqueios afetarão meu dia a dia?
+      </div>
+      <div class="faq-answer">
+        As proteções implementadas não impactarão seu fluxo de tarefas comum. São medidas de segurança para proteger a
+        informação da empresa. Dúvidas? Consulte o FAQ ou suporte.
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" tabindex="0" onclick="toggleFAQ(this)">
+        Preciso migrar arquivos ou fazer backup manual?
+      </div>
+      <div class="faq-answer">
+        Antes da migração, é recomendado salvar arquivos importantes no OneDrive ou na nuvem da Globo. O time de TI pode
+        orientar backups específicos conforme o seu perfil.
+      </div>
+    </div>
+  </section>
+  <script>
+    function toggleFAQ(elem) {
+      const parent = elem.parentElement;
+      parent.classList.toggle('active');
+    }
+    // Fechar FAQs abertas clicando fora (opcional)
+    document.body.addEventListener('click', function (e) {
+      if (!e.target.classList.contains('faq-question')) {
+        document.querySelectorAll('.faq-item.active').forEach(function (el) {
+          el.classList.remove('active');
+        });
+      }
+    });
+  </script>
+</body>
+
+</html>

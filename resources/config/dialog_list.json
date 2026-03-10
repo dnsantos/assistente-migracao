@@ -1,0 +1,30 @@
+{
+  "infotext": "Desenvolvido por Modern Workplace Globo",
+  "listitem": [
+    {
+      "title": "1. Validação",
+      "status": "pending",
+      "statustext": "Aguardando..."
+    },
+    {
+      "title": "2. Instalação de Dependências",
+      "status": "pending",
+      "statustext": "Aguardando..."
+    },
+    {
+      "title": "3. Remoção do Intune",
+      "status": "pending",
+      "statustext": "Aguardando..."
+    },
+    {
+      "title": "4. Instalação do Jamf",
+      "status": "pending",
+      "statustext": "Aguardando..."
+    },
+    {
+      "title": "5. Finalização",
+      "status": "pending",
+      "statustext": "Aguardando..."
+    }
+  ]
+}
