@@ -61,35 +61,35 @@ The main script (`main.sh`) automatically detects the current Mac state and runs
 ```
 mac-mdm-migration/
 ├── bin/
-│   ├── main.sh        # Main orchestrator — only entry point
-│   ├── validate.sh    # Step 1 — validates Mac state, detects MDM
-│   ├── install_dependencies.sh     # Step 2 — installs swiftDialog
-│   ├── remove_intune.sh            # Step 3 — removes device via Graph API
-│   ├── clean_certificates.sh    # Step 3b — removes MS-ORGANIZATION-ACCESS cert
-│   ├── install_jamf.sh             # Step 4 — enrolls Mac via ABM PreStage
-│   ├── post_migration.sh              # Step 5 — recon, cleanup, log rotation
-│   ├── notify_teams.sh           # Sends Adaptive Cards to Teams webhook
-│   ├── jq-macos-arm64               # jq binary for Apple Silicon
-│   └── jq-macos-amd64               # jq binary for Intel
+│   ├── main.sh                          # Main orchestrator — only entry point
+│   ├── validate.sh                      # Step 1 — validates Mac state, detects MDM
+│   ├── install_dependencies.sh          # Step 2 — installs swiftDialog
+│   ├── remove_intune.sh                 # Step 3 — removes device via Graph API
+│   ├── clean_certificates.sh            # Step 3b — removes MS-ORGANIZATION-ACCESS cert
+│   ├── install_jamf.sh                  # Step 4 — enrolls Mac via ABM PreStage
+│   ├── post_migration.sh                # Step 5 — recon, cleanup, log rotation
+│   ├── notify_teams.sh                  # Sends Adaptive Cards to Teams webhook
+│   ├── jq-macos-arm64                   # jq binary for Apple Silicon
+│   └── jq-macos-amd64                   # jq binary for Intel
 ├── html/
-│   ├── images/                      # Screenshots/GIFs shown in novidades.html  ← add yours here
-│   ├── index.html                   # User-facing portal — welcome page
-│   ├── novidades.html               # What's changing
-│   ├── beneficios.html              # Migration benefits
-│   └── faq.html                     # Frequently asked questions
+│   ├── images/                          # Screenshots/GIFs shown in whats_new.html  ← add yours here
+│   ├── index.html                       # User-facing portal — welcome page
+│   ├── whats_new.html                   # What's changing
+│   ├── benefits.html                    # Migration benefits
+│   └── faq.html                         # Frequently asked questions
 ├── pkg/
 │   ├── LaunchDaemon/
-│   │   └── com.acme.mdm-migration.plist  # LaunchDaemon — starts migration on install
+│   │   └── com.acme.mdm-migration.plist # LaunchDaemon — starts migration on install
 │   └── scripts/
-│       ├── postinstall              # PKG post-install: keychain injection + permissions + daemon load
-│       └── cleanup.sh         # Self-destruct: removes all artifacts after migration completes
+│       ├── postinstall                  # PKG post-install: keychain injection + permissions + daemon load
+│       └── cleanup.sh                   # Self-destruct: removes all artifacts after migration completes
 ├── resources/
 │   └── config/
-│       ├── migration_config.json    # Credentials and configuration  ← edit this
-│       └── dialog_list.json         # swiftDialog progress list structure
+│       ├── migration_config.json        # Credentials and configuration  ← edit this
+│       └── dialog_list.json             # swiftDialog progress list structure
 └── docs/
-    ├── TECHNICAL_GUIDE.md           # Full technical reference for IT admins
-    └── USER_GUIDE.md                # End-user guide
+    ├── TECHNICAL_GUIDE.md               # Full technical reference for IT admins
+    └── USER_GUIDE.md                    # End-user guide
 ```
 
 ---
@@ -98,7 +98,7 @@ mac-mdm-migration/
 
 ### 0. Add images to the user portal
 
-The `html/novidades.html` page has slots for screenshots and screen recordings that illustrate each change to end users. The image tags are **commented out by default** — add your own files and uncomment the lines.
+The `html/whats_new.html` page has slots for screenshots and screen recordings that illustrate each change to end users. The image tags are **commented out by default** — add your own files and uncomment the lines.
 
 **1.** Create the folder `html/images/` and place your files there:
 
@@ -109,7 +109,7 @@ The `html/novidades.html` page has slots for screenshots and screen recordings t
 | `images/usb_block_message.png` | Screenshot of the USB blocked alert |
 | `images/wallpaper.png` | Screenshot of the corporate wallpaper |
 
-**2.** In `novidades.html`, uncomment the corresponding line in each card and update the `src` to match your filename. Example:
+**2.** In `whats_new.html`, uncomment the corresponding line in each card and update the `src` to match your filename. Example:
 
 ```html
 <!-- before -->
