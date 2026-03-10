@@ -1,374 +1,377 @@
-# Assistente de Migração Globo — Documentação Técnica
+# Technical Guide — Mac MDM Migration
 
-> Migração automatizada de Macs do **Microsoft Intune** para o **Jamf Pro**
+> **Audience:** IT administrators and system engineers  
+> **Tool:** mac-mdm-migration · Intune → Jamf Pro  
+> **Version:** 1.1
 
 ---
 
-## Sumário
+## Table of Contents
 
-1. [Visão Geral](#visão-geral)
-2. [Pré-requisitos](#pré-requisitos)
-3. [Estrutura do Projeto](#estrutura-do-projeto)
-4. [Configuração](#configuração)
-5. [Fluxo de Execução](#fluxo-de-execução)
-6. [Scripts — Referência](#scripts--referência)
-7. [Códigos de Saída](#códigos-de-saída)
-8. [Arquivo de Estado](#arquivo-de-estado)
+1. [Overview](#overview)
+2. [Prerequisites](#prerequisites)
+3. [Directory Structure](#directory-structure)
+4. [Configuration](#configuration)
+5. [Provisioning the Client Secret](#provisioning-the-client-secret)
+6. [Execution Flow](#execution-flow)
+7. [Exit Codes](#exit-codes)
+8. [State File Reference](#state-file-reference)
 9. [Logs](#logs)
-10. [Notificações Teams](#notificações-teams)
-11. [Interface Visual (swiftDialog)](#interface-visual-swiftdialog)
-12. [Dependências Externas](#dependências-externas)
-13. [Segurança e Credenciais](#segurança-e-credenciais)
-14. [Troubleshooting](#troubleshooting)
+10. [swiftDialog Command Pipe](#swiftdialog-command-pipe)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Visão Geral
+## Overview
 
-O **Assistente de Migração Globo** é um conjunto de scripts Bash que orquestra a migração completa de Macs corporativos do Microsoft Intune para o Jamf Pro. O processo é automatizado, com interface visual via **swiftDialog** e notificações em tempo real para um canal do **Microsoft Teams**.
+**mac-mdm-migration** automates the migration of corporate Macs from Microsoft Intune to Jamf Pro. The process runs headlessly, with a visual progress interface via [swiftDialog](https://github.com/swiftDialog/swiftDialog) and real-time notifications to a Microsoft Teams channel.
 
-### Casos suportados
+The entry point is always `migracao_principal.sh`. It detects the current Mac state and runs only the required steps.
 
-| Cenário | Comportamento |
+---
+
+## Prerequisites
+
+| Requirement | Details |
 |---|---|
-| Mac já no Jamf Pro | Executa pós-migração e encerra sem alterações |
-| Mac no Microsoft Intune | Fluxo completo: remove Intune → enrola no Jamf |
-| Mac sem MDM ativo | Remove certificados residuais → enrola direto no Jamf |
-| MDM desconhecido | Aborta com erro — requer intervenção manual |
+| macOS | 11 (Big Sur) or later |
+| Execution context | Must run as **root** (Jamf Policy, ARD, or equivalent) |
+| Apple Business Manager | Mac must be registered in ABM |
+| Jamf PreStage | Mac must be assigned to a PreStage Enrollment |
+| Azure AD App | App Registration with `DeviceManagementManagedDevices.ReadWrite.All` |
+| Network | Access to `login.microsoftonline.com`, `graph.microsoft.com`, `api.github.com`, and your Jamf server |
+| Client Secret | Provisioned in System Keychain **before** execution |
 
 ---
 
-## Pré-requisitos
-
-- macOS 11 (Big Sur) ou superior
-- Execução como **root** (via Jamf Policy, ARD ou similar)
-- Mac registrado no **Apple Business Manager (ABM)**
-- Mac atribuído ao **PreStage de Enrollment** no Jamf Pro
-- Credenciais de **App Registration** no Azure AD com permissão `DeviceManagementManagedDevices.ReadWrite.All`
-- Conectividade com:
-  - `login.microsoftonline.com` — autenticação OAuth
-  - `graph.microsoft.com` — API do Intune
-  - `api.github.com` — download do swiftDialog
-  - Servidor MDM do Jamf Pro
-
----
-
-## Estrutura do Projeto
+## Directory Structure
 
 ```
-assistente-migracao/
+/Library/Application Support/<COMPANY_NAME> MDM Migration/
 ├── bin/
-│   ├── migracao_principal.sh        # Orquestrador principal
-│   ├── validacao_pre_migracao.sh    # Passo 1 — Validação de estado
-│   ├── instalar_dependencias.sh     # Passo 2 — Instalação do swiftDialog
-│   ├── remover_intune.sh            # Passo 3 — Remoção do Intune via Graph API
-│   ├── limpar_certificados_ms.sh    # Passo 3b — Limpeza de certificados MS
-│   ├── instalar_jamf.sh             # Passo 4 — Enrollment no Jamf Pro
-│   ├── pos_migracao.sh              # Passo 5 — Finalização e limpeza
-│   ├── notificar_teams.sh           # Envio de notificações ao Teams
-│   ├── jq-macos-arm64               # Binário jq para Apple Silicon
-│   └── jq-macos-amd64               # Binário jq para Intel
+│   ├── migracao_principal.sh        # Orchestrator — only entry point
+│   ├── validacao_pre_migracao.sh    # Step 1 — Mac state detection
+│   ├── instalar_dependencias.sh     # Step 2 — swiftDialog install
+│   ├── remover_intune.sh            # Step 3 — Graph API retire
+│   ├── limpar_certificados_ms.sh    # Step 3b — removes MS-ORGANIZATION-ACCESS
+│   ├── instalar_jamf.sh             # Step 4 — ABM PreStage enrollment
+│   ├── pos_migracao.sh              # Step 5 — recon, cleanup, log rotation
+│   ├── notificar_teams.sh           # Teams Adaptive Card notifications
+│   ├── jq-macos-arm64               # Bundled jq binary (Apple Silicon)
+│   └── jq-macos-amd64               # Bundled jq binary (Intel)
 ├── html/
-│   ├── index.html                   # Página de boas-vindas
-│   ├── novidades.html               # O que vai mudar
-│   ├── beneficios.html              # Benefícios da migração
-│   ├── faq.html                     # Perguntas frequentes
-│   └── css/app-globo.css
-└── resources/
-    └── config/
-        ├── migration_config.json    # Configurações e credenciais
-        └── dialog_list.json         # Estrutura da lista do swiftDialog
+│   ├── index.html                   # User-facing portal — welcome page
+│   ├── novidades.html               # What's changing
+│   ├── beneficios.html              # Migration benefits
+│   └── faq.html                     # Frequently asked questions
+├── resources/
+│   └── config/
+│       ├── migration_config.json    # Credentials and settings  ← edit this
+│       └── dialog_list.json         # swiftDialog progress list
+├── logs/
+│   └── migration.log                # Main execution log
+└── migration_state.json             # Runtime state file
 ```
+
+> The base path is controlled by `COMPANY_NAME` in each script (default: `ACME`). Change it once and all paths update automatically.
 
 ---
 
-## Configuração
+## Configuration
 
-Antes de distribuir o pacote, edite o arquivo `resources/config/migration_config.json`:
+Edit `resources/config/migration_config.json` before deployment:
 
 ```json
 {
   "intune": {
-    "tenant_id": "SEU_TENANT_ID",
-    "client_id": "SEU_CLIENT_ID",
+    "tenant_id":         "YOUR_TENANT_ID",
+    "client_id":         "YOUR_CLIENT_ID",
     "teams_webhook_url": "https://outlook.office.com/webhook/...",
-    "removal_timeout": 300
+    "removal_timeout":   300
   },
   "organization": {
-    "name": "Globo",
-    "notification_email": "suporte@globo.com"
+    "name":               "ACME Corp",
+    "notification_email": "it-support@acme.com"
   },
   "settings": {
     "debug_mode": false,
-    "log_level": "info"
+    "log_level":  "info"
   }
 }
 ```
 
-### Client Secret
-
-O `client_secret` **não** é armazenado no JSON por segurança. Ele deve ser provisionado no Keychain do sistema antes da execução:
-
-```bash
-security add-generic-password \
-  -s "GloboMigrationService" \
-  -a "IntuneAuth" \
-  -w "SEU_CLIENT_SECRET" \
-  /Library/Keychains/System.keychain
-```
+> ⚠️ **Never store `client_secret` in the JSON file.** Use the System Keychain (see next section).
 
 ---
 
-## Fluxo de Execução
+## Provisioning the Client Secret
+
+The `client_secret` must be stored in the **System Keychain** on each target Mac before the migration runs. The Keychain service name and account are configured via variables in `remover_intune.sh`:
+
+```bash
+readonly KEYCHAIN_SERVICE="MDMMigrationService"   # <── change if needed
+readonly KEYCHAIN_ACCOUNT="IntuneAuth"             # <── change if needed
+```
+
+To provision the secret (run as root, or push via Jamf Policy):
+
+```bash
+security add-generic-password \
+  -s "MDMMigrationService" \
+  -a "IntuneAuth" \
+  -w "YOUR_CLIENT_SECRET" \
+  /Library/Keychains/System.keychain
+```
+
+> To verify the secret is present without revealing it:
+> ```bash
+> security find-generic-password -s "MDMMigrationService" -a "IntuneAuth" /Library/Keychains/System.keychain
+> ```
+
+---
+
+## Execution Flow
 
 ```
 migracao_principal.sh
 │
-├── [Passo 1] validacao_pre_migracao.sh
-│     ├── exit 0  → Mac já no Jamf  → pós-migração → fim
-│     ├── exit 10 → Mac no Intune   → continua fluxo completo
-│     ├── exit 20 → Sem MDM         → pula remoção, enrola no Jamf
-│     └── exit 1  → Erro/MDM desconhecido → aborta
+├── [Step 1] validacao_pre_migracao.sh
+│     ├── exit 0  → Already in Jamf ──────────────────► pos_migracao → exit 0
+│     ├── exit 10 → On Intune        → full migration flow
+│     ├── exit 20 → No MDM           → skip removal, enroll in Jamf directly
+│     └── exit 1  → Error            → abort, notify Teams
 │
-├── [Passo 2] instalar_dependencias.sh
-│     └── Baixa e instala swiftDialog via GitHub Releases
-│         Verifica assinatura (Team ID: PWA5E9TQ59)
+├── [Step 2] instalar_dependencias.sh  (only if Dialog not present)
+│     └── Downloads swiftDialog from GitHub Releases
+│         Verifies PKG signature (Team ID: PWA5E9TQ59)
+│         Installs to /usr/local/bin/dialog
 │
-├── [Passo 3] remover_intune.sh  (somente se exit 10)
-│     ├── Obtém token OAuth do Azure AD
-│     ├── Localiza dispositivo por serial na Graph API
-│     ├── Executa retire via POST /managedDevices/{id}/retire
-│     └── Monitora remoção do perfil MDM (loop infinito até confirmação)
-│         └── limpar_certificados_ms.sh
-│               └── Remove MS-ORGANIZATION-ACCESS do keychain do usuário
+├── [Step 3] remover_intune.sh  (only on exit 10)
+│     ├── OAuth2 client_credentials → Microsoft Graph token
+│     ├── GET /managedDevices?$filter=serialNumber eq '<serial>'
+│     ├── POST /managedDevices/{id}/retire  (HTTP 204 expected)
+│     ├── Loop: profiles status -type enrollment (every 30s until MDM removed)
+│     └── limpar_certificados_ms.sh
+│           └── security delete-certificate MS-ORGANIZATION-ACCESS (user keychain)
 │
-├── [Passo 4] instalar_jamf.sh
-│     ├── Executa `profiles renew -type enrollment`
-│     ├── Monitora enrollment (20 tentativas × 30s = 10 min)
-│     └── Executa `jamf startup` para validar JSS
+├── [Step 4] instalar_jamf.sh
+│     ├── profiles renew -type enrollment
+│     └── Loop: check MDM enrollment (20 × 30s = up to 10 min)
+│           └── Confirms MDM server contains "jamf"
 │
-└── [Passo 5] pos_migracao.sh
+└── [Step 5] pos_migracao.sh
       ├── jamf recon
-      ├── Limpeza de arquivos temporários
-      ├── Rotação de logs (máx. 10 MB / 7 dias)
-      ├── Atualiza migration_state.json com status "completed"
-      └── Agenda autoeliminação da pasta do assistente
+      ├── Temporary file cleanup
+      ├── Log rotation (max 10 MB / keeps 7 days)
+      ├── notificar_teams.sh "completed" (async)
+      └── Self-removal of migration folder (via nohup)
 ```
 
 ---
 
-## Scripts — Referência
+## Exit Codes
 
 ### `migracao_principal.sh`
-Script orquestrador. Deve ser o único ponto de entrada.
 
-- Detecta arquitetura e configura `JQ_BIN` (exportado para scripts filhos)
-- Inicia interface swiftDialog se já disponível; caso contrário, aguarda instalação no Passo 2
-- Gerencia atualizações da lista visual (`update_list_item index status statustext`)
+| Code | Meaning |
+|---|---|
+| `0` | Migration completed successfully |
+| `1` | Validation failure (see `validacao_pre_migracao.sh`) |
+| `2` | Dependency installation failure |
+| `3` | Intune removal failure |
+| `4` | Jamf enrollment failure |
 
 ### `validacao_pre_migracao.sh`
-Valida o estado atual e cria `migration_state.json`.
 
-- Verifica macOS ≥ 11
-- Detecta MDM via `profiles status -type enrollment`
-- Identifica Jamf, Intune ou ausência de MDM pelo campo `MDM server`
-
-### `instalar_dependencias.sh`
-Instala o swiftDialog a partir da última release do GitHub.
-
-- Usa `jq` para parsear resposta da API `github.com/repos/swiftDialog/swiftDialog/releases/latest`
-- Verifica Team ID do PKG antes de instalar (`PWA5E9TQ59`)
+| Code | Meaning |
+|---|---|
+| `0` | Mac already enrolled in Jamf Pro — no migration needed |
+| `1` | Error (not root, incompatible macOS, or unknown MDM) |
+| `10` | Mac is on Intune — full migration required |
+| `20` | No active MDM — enroll directly in Jamf |
 
 ### `remover_intune.sh`
-Remove o dispositivo do Intune via Microsoft Graph API.
 
-- Autenticação OAuth 2.0 com `client_credentials`
-- Busca dispositivo por `serialNumber`
-- Executa `POST /retire` e aguarda a remoção do perfil MDM em loop
-
-### `limpar_certificados_ms.sh`
-Remove o certificado `MS-ORGANIZATION-ACCESS` do keychain do usuário logado.
-
-- Usa `security find-certificate` e `security delete-certificate`
-- Requer usuário ativo na sessão (não executa se nenhum usuário estiver logado)
-
-### `instalar_jamf.sh`
-Enrola o Mac no Jamf Pro via ABM PreStage.
-
-- Executa `profiles renew -type enrollment`
-- Monitora enrollment por até 10 minutos (20 × 30s)
-- Verifica presença do binário `/usr/local/bin/jamf`
-
-### `pos_migracao.sh`
-Finalização e limpeza.
-
-- Executa `jamf recon` para atualizar inventário
-- Remove arquivos temporários em `/private/tmp`
-- Rotaciona logs maiores que 10 MB
-- Agenda limpeza da pasta do assistente via `nohup`
-
-### `notificar_teams.sh`
-Envia Adaptive Cards para o webhook do Microsoft Teams.
-
-**Parâmetros:**
-```bash
-notificar_teams.sh "inicio"
-notificar_teams.sh "concluido"
-notificar_teams.sh "falha" "Mensagem de erro detalhada"
-```
+| Code | Meaning |
+|---|---|
+| `0` | Intune removed successfully |
+| `1` | Credential or config error |
+| `2` | Device not found in Intune |
+| `3` | Retire API call failed |
+| `4` | Timeout waiting for MDM profile removal |
 
 ---
 
-## Códigos de Saída
+## State File Reference
 
-### `validacao_pre_migracao.sh`
-| Código | Significado |
-|---|---|
-| `0` | Mac já está no Jamf Pro |
-| `1` | Erro (sem root, macOS incompatível, MDM desconhecido) |
-| `10` | Mac no Intune — migração necessária |
-| `20` | Sem MDM — enrolar direto no Jamf |
+The state file is written and updated throughout the migration:
 
-### `migracao_principal.sh`
-| Código | Significado |
-|---|---|
-| `0` | Migração concluída com sucesso |
-| `1` | Falha na validação |
-| `2` | Falha ao instalar dependências |
-| `3` | Falha ao remover Intune |
-| `4` | Falha ao enrolar no Jamf |
-
----
-
-## Arquivo de Estado
-
-Gerado em `/Library/Application Support/Assistente de Migracao/migration_state.json`:
-
-```json
-{
-  "validation_date": "2025-11-12T14:30:00Z",
-  "os_version": "14.6.1",
-  "current_user": "joao.silva",
-  "disk_space_gb": 120,
-  "mdm_enrolled": true,
-  "mdm_server": "https://empresa.jamfcloud.com",
-  "mdm_type": "jamf",
-  "needs_migration": false,
-  "migration_status": "completed",
-  "completion_date": "2025-11-12T14:45:00Z"
-}
+```
+/Library/Application Support/<COMPANY_NAME> MDM Migration/migration_state.json
 ```
 
-**Valores possíveis de `migration_status`:**
+**Fields:**
 
-| Valor | Descrição |
-|---|---|
-| `already_in_jamf` | Mac já estava no Jamf ao iniciar |
-| `needs_migration` | Migração necessária (Intune detectado) |
-| `no_mdm_enroll_jamf` | Sem MDM, aguardando enrollment |
-| `intune_removed` | Intune removido com sucesso |
-| `jamf_enrolled` | Enrolled no Jamf com sucesso |
-| `completed` | Pós-migração finalizada |
-| `unknown_mdm` | MDM não reconhecido |
+| Field | Type | Description |
+|---|---|---|
+| `validation_date` | string (ISO 8601) | Timestamp of the validation step |
+| `os_version` | string | macOS version detected at start |
+| `current_user` | string | Logged-in user at time of execution |
+| `disk_space_gb` | number | Available disk space in GB |
+| `mdm_enrolled` | boolean | Whether MDM was active at validation |
+| `mdm_server` | string | MDM server URL detected |
+| `mdm_type` | string | `intune`, `jamf`, `none`, or `unknown` |
+| `needs_migration` | boolean | Whether migration was required |
+| `migration_status` | string | Current status (see values below) |
+| `completion_date` | string (ISO 8601) | Set by `pos_migracao.sh` on success |
+
+**`migration_status` values:**
+
+| Value | Set by | Meaning |
+|---|---|---|
+| `already_in_jamf` | validacao | Mac was already in Jamf at start |
+| `needs_migration` | validacao | Intune detected, migration required |
+| `no_mdm_enroll_jamf` | validacao | No MDM — will enroll directly |
+| `unknown_mdm` | validacao | Unrecognized MDM — requires manual intervention |
+| `intune_removed` | remover_intune | Intune successfully retired |
+| `jamf_enrolled` | instalar_jamf | Jamf enrollment confirmed |
+| `completed` | pos_migracao | Post-migration finalized successfully |
 
 ---
 
 ## Logs
 
-Todos os scripts escrevem no log principal:
-
+**Main log:**
 ```
-/Library/Application Support/Assistente de Migracao/logs/migracao.log
+/Library/Application Support/<COMPANY_NAME> MDM Migration/logs/migration.log
 ```
 
-- Rotação automática quando o arquivo supera **10 MB**
-- Arquivos rotacionados mantidos por **7 dias**
-- Formato: `[YYYY-MM-DD HH:MM:SS] mensagem`
+Log rotation is handled by `pos_migracao.sh`:
+- Maximum size: **10 MB** (rotated with timestamp suffix)
+- Retention: **7 days**
+
+**Log format:**
+```
+[YYYY-MM-DD HH:MM:SS] message
+```
+
+**Status prefixes:**
+- `✓` — success
+- `✗` — failure / error
+- `⚠` — warning (non-fatal)
 
 ---
 
-## Notificações Teams
+## swiftDialog Command Pipe
 
-O webhook deve ser configurado em `migration_config.json`. As notificações são enviadas nos seguintes momentos:
-
-| Evento | Script chamador |
-|---|---|
-| Início da migração | `migracao_principal.sh` (implícito via fluxo) |
-| Migração concluída | `pos_migracao.sh` |
-| Falha em qualquer etapa | `migracao_principal.sh` |
-
-O payload usa **Adaptive Cards v1.4** com FactSet contendo: nome da máquina, serial, usuário, horário de início/fim e duração.
-
----
-
-## Interface Visual (swiftDialog)
-
-A interface exibe uma lista de 5 itens com status em tempo real. A comunicação é feita via arquivo de comandos:
+After Step 2, the orchestrator controls swiftDialog via a named pipe:
 
 ```
 /var/tmp/dialog_migration.log
 ```
 
-**Comandos suportados:**
+**Commands used:**
+
 ```bash
-# Atualizar item da lista
-echo "listitem: index: 2, status: success, statustext: Concluído" >> $DIALOG_LOG
+# Update list item
+echo "listitem: index: 2, status: wait, statustext: Removing Intune..." >> /var/tmp/dialog_migration.log
+echo "listitem: index: 2, status: success, statustext: Done" >> /var/tmp/dialog_migration.log
+echo "listitem: index: 2, status: fail, statustext: Failed" >> /var/tmp/dialog_migration.log
 
-# Atualizar ícone
-echo "icon: SF=checkmark.circle.fill,color=green" >> $DIALOG_LOG
+# Update main icon and message
+echo "icon: SF=checkmark.circle.fill,color=green" >> /var/tmp/dialog_migration.log
+echo "message: Migration completed!" >> /var/tmp/dialog_migration.log
 
-# Atualizar mensagem principal
-echo "message: Novo texto da mensagem" >> $DIALOG_LOG
-
-# Encerrar o dialog
-echo "quit:" >> $DIALOG_LOG
+# Show action button and close
+echo "button1text: Done" >> /var/tmp/dialog_migration.log
+echo "quit:" >> /var/tmp/dialog_migration.log
 ```
 
-**Status disponíveis:** `pending`, `wait`, `success`, `fail`, `error`
+**List item indexes:**
 
----
-
-## Dependências Externas
-
-| Dependência | Versão | Fonte |
-|---|---|---|
-| swiftDialog | latest | GitHub Releases |
-| jq | 1.7+ | Incluído no pacote (arm64 e amd64) |
-| curl | nativo macOS | — |
-| profiles | nativo macOS | — |
-| security | nativo macOS | — |
-
----
-
-## Segurança e Credenciais
-
-- O `client_secret` é lido exclusivamente do **System Keychain** via `security find-generic-password`
-- Nunca armazene segredos no `migration_config.json` em produção
-- O PKG do swiftDialog é verificado por **Team ID** antes da instalação
-- Logs não registram tokens de acesso ou segredos
+| Index | Step |
+|---|---|
+| 0 | 1. Validation |
+| 1 | 2. Install Dependencies |
+| 2 | 3. Remove Intune |
+| 3 | 4. Enroll in Jamf |
+| 4 | 5. Finalization |
 
 ---
 
 ## Troubleshooting
 
-**swiftDialog não instala**
-- Verificar conectividade com `api.github.com`
-- Verificar se o Team ID `PWA5E9TQ59` está na allowlist do Gatekeeper/MDM
+### Migration fails at Step 1 (Validation)
 
-**Token OAuth falha**
-- Confirmar que `tenant_id` e `client_id` estão corretos no config
-- Verificar se o `client_secret` está no Keychain: `security find-generic-password -s GloboMigrationService -a IntuneAuth`
-- Confirmar que a permissão `DeviceManagementManagedDevices.ReadWrite.All` está concedida no Azure AD
+**Symptom:** `✗ Validation failed` immediately  
+**Check:**
+- Is the script running as root? (`sudo` or Jamf Policy)
+- macOS version is 11 or later? (`sw_vers -productVersion`)
+- Review `migration.log` for the specific error
 
-**Dispositivo não encontrado no Intune**
-- Verificar se o serial number retornado por `system_profiler` bate com o registrado no Intune
-- Confirmar que o dispositivo não foi já retirado manualmente
+---
 
-**Enrollment no Jamf não conclui**
-- Verificar se o Mac está no ABM e associado ao PreStage correto
-- Verificar conectividade com o servidor MDM do Jamf
-- Aumentar o número de tentativas em `instalar_jamf.sh` (variável `checks`)
+### Step 2 fails: swiftDialog not installed
 
-**Certificado MS-ORGANIZATION-ACCESS não é removido**
-- Confirmar que há um usuário ativo na sessão (não funciona em contexto headless sem usuário)
-- Verificar permissões do keychain: `security list-keychains -d user`
+**Symptom:** `✗ Failed to install swiftDialog`  
+**Check:**
+- Is the Mac connected to the internet?
+- Can it reach `api.github.com`? (`curl -s https://api.github.com/repos/swiftDialog/swiftDialog/releases/latest`)
+- Check if the jq binary is present and executable:
+  ```bash
+  ls -la "/Library/Application Support/<COMPANY_NAME> MDM Migration/bin/"
+  ```
+
+---
+
+### Step 3 fails: Device not found in Intune
+
+**Symptom:** `✗ Device not found in Intune` (exit code 2)  
+**Check:**
+- Is the serial number correct? (`system_profiler SPHardwareDataType | grep Serial`)
+- Is the device registered in Intune under that serial?
+- Is the Azure AD app permission consented at the tenant level?
+
+---
+
+### Step 3 fails: Timeout waiting for MDM removal
+
+**Symptom:** `✗ Timeout: enrollment not confirmed` (exit code 4 on remover_intune)  
+**Check:**
+- The retire command was acknowledged (HTTP 204 in the log) — Intune sends the command but delivery depends on the MDM check-in interval
+- Increase `removal_timeout` in `migration_config.json` (default: 300s)
+- Verify network connectivity to Microsoft endpoints
+
+---
+
+### Step 4 fails: Jamf enrollment timeout
+
+**Symptom:** Enrollment check times out after 20 attempts  
+**Check:**
+- Is the Mac in Apple Business Manager?
+- Is it assigned to the correct PreStage in Jamf?
+- Try running `profiles renew -type enrollment` manually as root
+- Check Jamf server connectivity: `curl -sk https://<your-jamf-server>/healthCheck.html`
+
+---
+
+### Teams notifications not sending
+
+**Symptom:** Migration completes but no Teams message received  
+**Check:**
+- Is `teams_webhook_url` set in `migration_config.json`?
+- Is the webhook URL still valid? (Teams webhooks can expire)
+- Test manually:
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"type":"message","attachments":[{"contentType":"application/vnd.microsoft.card.adaptive","content":{"type":"AdaptiveCard","body":[{"type":"TextBlock","text":"Test"}]}}]}' \
+    "YOUR_WEBHOOK_URL"
+  ```
+
+---
+
+### Loop / header repeated hundreds of times in log
+
+**Symptom:** The banner `MDM MIGRATION ASSISTANT` and `Step 1/5` repeat hundreds of times within the same second  
+**Cause:** The main script is being called recursively (e.g., sourced instead of executed, or a `while` loop without `exec`)  
+**Fix:** Ensure `migracao_principal.sh` is called with `bash /path/to/migracao_principal.sh` and **not** sourced with `.` or `source`

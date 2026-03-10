@@ -236,8 +236,8 @@ Possible `migration_status` values:
 
 | Document | Audience |
 |---|---|
-| [Technical Guide](docs/Technical_Guide.docx) | IT administrators and system engineers |
-| [User Guide](docs/User_Guide.docx) | End users whose Macs will be migrated |
+| [Technical Guide](docs/TECHNICAL_GUIDE.md) | IT administrators and system engineers |
+| [User Guide](docs/USER_GUIDE.md) | End users whose Macs will be migrated |
 
 Execution logs: `/Library/Application Support/<COMPANY_NAME> MDM Migration/logs/migration.log`
 

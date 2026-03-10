@@ -1,111 +1,133 @@
-# Guia do Usuário — Migração Apple na Globo
+# User Guide — Mac MDM Migration
 
-> Tudo o que você precisa saber sobre a atualização do gerenciamento do seu Mac
-
----
-
-## O que está acontecendo?
-
-A Globo está migrando o gerenciamento dos Macs corporativos para uma nova plataforma: o **Jamf Pro**. Essa mudança traz mais segurança, suporte mais rápido e uma experiência mais integrada ao ambiente Apple.
-
-A migração é **automática** — você não precisa fazer nada técnico. Este guia explica o que esperar antes, durante e depois do processo.
+> **Audience:** End users whose Macs will be migrated  
+> **Process:** Intune → Jamf Pro  
 
 ---
 
-## Antes da migração
+## What is happening?
 
-### ✅ O que você deve fazer
+Your Mac is being migrated to a new device management platform. This change strengthens security, simplifies IT support, and improves your day-to-day experience.
 
-**1. Salve seus arquivos na nuvem**
-Certifique-se de que documentos importantes estão salvos no **OneDrive** ou em outra solução de nuvem da Globo. Arquivos salvos somente no Mac podem ser perdidos em casos de formatação.
-
-**2. Verifique sua senha Microsoft**
-Após a migração, o login do Mac será sincronizado com sua senha dos serviços Microsoft (Outlook, Teams etc.).
-
-Troque sua senha **antes** da migração se ela contiver algum destes caracteres especiais:
-```
-~ ` ' " ^
-```
-Senhas muito longas também podem causar problemas. Recomendamos uma senha forte com tamanho moderado.
-
-> Como trocar: acesse o portal Microsoft/Office e altere sua senha nas configurações de conta.
-
-**3. Mantenha o Mac ligado e conectado à internet**
-O processo requer conexão ativa. Deixe o Mac conectado à rede e à energia durante a migração.
+The migration is **automatic** — you don't need to do anything technical. The process runs in the background and takes approximately **15–30 minutes**. You can **continue using your Mac normally** while it runs.
 
 ---
 
-## Durante a migração
+## Before the migration — checklist
 
-Uma janela com o progresso da migração será exibida automaticamente na sua tela. Você verá uma lista com as etapas:
+Please complete the following **before the migration starts**:
 
-| Etapa | O que acontece |
+- [ ] **Save all open files** — although no restart is forced during migration, it is good practice
+- [ ] **Back up important files** to OneDrive or another cloud storage solution
+- [ ] **Check your password** — after migration, your Mac password must sync with your corporate account. Passwords containing the characters **`~ ` ' " ^`** or very long passwords may cause login issues. Change yours at the Microsoft portal if needed
+- [ ] **Connect to your corporate network or VPN** — required for the migration to reach Microsoft and Jamf servers
+- [ ] **Plug in your charger** — the process takes up to 30 minutes; avoid running it on battery only
+
+---
+
+## What to expect during the migration
+
+Once the migration starts, a progress window will appear on your screen:
+
+| Step | What is happening |
 |---|---|
-| 1. Validação | O sistema verifica o estado atual do seu Mac |
-| 2. Instalação de dependências | Ferramentas necessárias são instaladas |
-| 3. Remoção do Intune | O gerenciamento anterior é removido com segurança |
-| 4. Instalação do Jamf | Seu Mac é conectado à nova plataforma |
-| 5. Finalização | Limpeza e ajustes finais |
+| **1. Validation** | Checking your Mac's current state |
+| **2. Install Dependencies** | Downloading the progress interface tool |
+| **3. Remove Intune** | Your Mac is being retired from Microsoft Intune |
+| **4. Enroll in Jamf** | Your Mac is enrolling in the new management platform |
+| **5. Finalization** | Cleaning up and updating the inventory |
 
-**Você pode continuar usando o Mac normalmente** enquanto a migração acontece em segundo plano. O processo leva aproximadamente **15 a 30 minutos**.
-
----
-
-## Após a migração
-
-### 🔐 Novo login com Jamf Connect
-
-No próximo login (após reiniciar ou bloquear a tela), você verá a tela do **Jamf Connect**. Basta inserir suas credenciais da Globo/Microsoft normalmente — é o mesmo usuário e senha que você já usa no Outlook e Teams.
-
-### 🖥️ Papel de parede Globo
-
-Seu Mac exibirá automaticamente o papel de parede institucional da Globo. Personalização de papel de parede está desativada por política da empresa.
-
-### 🔒 Dispositivos USB
-
-Pendrives e HDs externos **não autorizados** serão bloqueados automaticamente. Se você precisar de acesso a um dispositivo externo, solicite à equipe de TI.
+> Each step updates in real time. You can minimize the window and continue working.
 
 ---
 
-## Como solicitar acesso de administrador
+## What changes after the migration
 
-Após a migração, você não terá permissão de administrador permanente no Mac — isso é uma medida de segurança. Quando precisar instalar um aplicativo ou alterar configurações avançadas, você pode solicitar acesso temporário:
+### 🔐 Login with Jamf Connect
 
-1. Clique no ícone do **Jamf Connect** na barra de menu (topo da tela)
-2. Selecione **"Request Admin Privileges"**
-3. Informe o motivo da solicitação
-4. Você terá acesso de administrador por **5 minutos**
+After the migration, your next Mac login will use **Jamf Connect**, which keeps your Mac password synchronized with your corporate account. Simply enter your usual corporate credentials (same as Microsoft 365 / Outlook).
 
-> Esse processo protege seu Mac e os dados da empresa sem te impedir de fazer o que precisa.
+> **Important:** If your password contains `~ ` ' " ^` or is unusually long, change it at the Microsoft portal before your next login.
 
 ---
 
-## Perguntas frequentes
+### 🛡️ Temporary admin access
 
-**Preciso estar presente durante a migração?**
-Não é necessário acompanhar ativamente. Você pode continuar trabalhando normalmente. Apenas mantenha o Mac ligado e conectado.
+You are no longer a permanent administrator on your Mac. Admin access is granted **on demand, for 5 minutes**, via Jamf Connect.
 
-**Vou perder meus arquivos?**
-Não, desde que estejam salvos na nuvem (OneDrive). Arquivos locais não são apagados durante a migração, mas recomendamos backup preventivo.
+**How to request admin access:**
 
-**O que faço se esquecer minha senha após a migração?**
-Sua senha do Mac é a mesma do Microsoft/Globo. Caso esqueça, redefina pelo portal de senhas Microsoft e reinicie o Mac. O Jamf Connect sincronizará automaticamente.
+1. Click the **Jamf Connect** icon in the menu bar (top-right of your screen)
+2. Select **"Request Admin Privileges"**
+3. Enter the reason for your request
+4. You will have admin access for **5 minutes**
 
-**E se algo der errado?**
-A equipe de TI é notificada automaticamente em caso de falha. Entre em contato com o suporte informando o serial do seu Mac (Apple menu > Sobre este Mac).
-
-**Posso instalar apps normalmente?**
-Sim, usando a solicitação de acesso temporário de administrador via Jamf Connect, conforme descrito acima.
-
-**Meu Mac vai reiniciar sozinho?**
-A migração em si não reinicia o Mac. Após a conclusão, pode ser solicitado um reinício para aplicar políticas do Jamf — siga as instruções na tela.
+This keeps your Mac secure without blocking your work.
 
 ---
 
-## Precisa de ajuda?
+### 🚫 USB devices
 
-Entre em contato com o suporte da Globo pelos canais habituais e informe:
+Unauthorized USB storage devices (flash drives, external hard drives) are **blocked automatically** to protect corporate data. An alert will appear on your screen if you plug one in.
 
-- Seu nome e departamento
-- O serial do Mac: **Apple menu (🍎) > Sobre este Mac > Número de série**
-- Uma descrição do problema ou dúvida
+If you need access to a specific USB device for work, contact IT support to request an exception.
+
+---
+
+### 🖼️ Wallpaper
+
+Your Mac will display the **company wallpaper** after migration. Custom wallpaper changes are managed by policy and cannot be changed by users.
+
+---
+
+## Frequently Asked Questions
+
+**How do I log in after the migration?**  
+Use your existing corporate credentials (same as Outlook / Microsoft 365). Jamf Connect handles the login and keeps your password in sync.
+
+---
+
+**I forgot my password or can't log in. What do I do?**  
+Reset your password at the Microsoft portal (Office / Outlook settings), then restart your Mac. Jamf Connect will sync the new password automatically. If you remain locked out, contact IT support.
+
+---
+
+**I'm no longer an admin — how do I install apps?**  
+Use the **Jamf Connect** menu bar icon to request temporary admin access (5 minutes). This is sufficient for most installations.
+
+---
+
+**My USB drive is blocked. What should I do?**  
+Contact IT support and explain your use case. The team can grant an exception for specific devices if needed.
+
+---
+
+**Will my files be deleted during the migration?**  
+No. Local files are not touched during the migration. However, we recommend backing up to OneDrive as a precaution before the process starts.
+
+---
+
+**Will my Mac restart during the migration?**  
+The migration itself does not force a restart. After enrollment, Jamf Pro may push a policy that requests a restart. Follow the on-screen instructions if prompted.
+
+---
+
+**The migration seems stuck. What should I do?**  
+Some steps (especially removing Intune) can take up to 10 minutes while waiting for Microsoft servers to respond. If the window shows no progress for more than **20 minutes**, contact IT support and share the log file located at:
+
+```
+/Library/Application Support/<COMPANY_NAME> MDM Migration/logs/migration.log
+```
+
+---
+
+**What information does the new management platform see?**  
+The management platform only monitors corporate security configurations (encryption, MDM enrollment, security policies). It does not access your personal files, messages, browser history, or camera.
+
+---
+
+## Need help?
+
+Contact your IT support team and provide:
+- Your Mac's serial number (`Apple menu → About This Mac → More Info`)
+- The log file at `/Library/Application Support/<COMPANY_NAME> MDM Migration/logs/migration.log`
