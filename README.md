@@ -25,7 +25,7 @@
 
 **mac-mdm-migration** is a set of Bash scripts that orchestrates the full migration of corporate Macs from Microsoft Intune to Jamf Pro. The process is fully automated, with a visual progress interface via [swiftDialog](https://github.com/swiftDialog/swiftDialog) and real-time notifications to a **Microsoft Teams** channel.
 
-The main script (`migracao_principal.sh`) automatically detects the current Mac state and runs only the steps required — no manual intervention needed.
+The main script (`main.sh`) automatically detects the current Mac state and runs only the steps required — no manual intervention needed.
 
 ---
 
@@ -61,29 +61,32 @@ The main script (`migracao_principal.sh`) automatically detects the current Mac 
 ```
 mac-mdm-migration/
 ├── bin/
-│   ├── migracao_principal.sh        # Main orchestrator — only entry point
-│   ├── validacao_pre_migracao.sh    # Step 1 — validates Mac state, detects MDM
-│   ├── instalar_dependencias.sh     # Step 2 — installs swiftDialog
-│   ├── remover_intune.sh            # Step 3 — removes device via Graph API
-│   ├── limpar_certificados_ms.sh    # Step 3b — removes MS-ORGANIZATION-ACCESS cert
-│   ├── instalar_jamf.sh             # Step 4 — enrolls Mac via ABM PreStage
-│   ├── pos_migracao.sh              # Step 5 — recon, cleanup, log rotation
-│   ├── notificar_teams.sh           # Sends Adaptive Cards to Teams webhook
+│   ├── main.sh        # Main orchestrator — only entry point
+│   ├── validate.sh    # Step 1 — validates Mac state, detects MDM
+│   ├── install_dependencies.sh     # Step 2 — installs swiftDialog
+│   ├── remove_intune.sh            # Step 3 — removes device via Graph API
+│   ├── clean_certificates.sh    # Step 3b — removes MS-ORGANIZATION-ACCESS cert
+│   ├── install_jamf.sh             # Step 4 — enrolls Mac via ABM PreStage
+│   ├── post_migration.sh              # Step 5 — recon, cleanup, log rotation
+│   ├── notify_teams.sh           # Sends Adaptive Cards to Teams webhook
 │   ├── jq-macos-arm64               # jq binary for Apple Silicon
 │   └── jq-macos-amd64               # jq binary for Intel
 ├── html/
+│   ├── images/                      # Screenshots/GIFs shown in novidades.html  ← add yours here
 │   ├── index.html                   # User-facing portal — welcome page
 │   ├── novidades.html               # What's changing
 │   ├── beneficios.html              # Migration benefits
 │   └── faq.html                     # Frequently asked questions
+├── pkg/
+│   ├── LaunchDaemon/
+│   │   └── com.acme.mdm-migration.plist  # LaunchDaemon — starts migration on install
+│   └── scripts/
+│       ├── postinstall              # PKG post-install: keychain injection + permissions + daemon load
+│       └── cleanup.sh         # Self-destruct: removes all artifacts after migration completes
 ├── resources/
 │   └── config/
 │       ├── migration_config.json    # Credentials and configuration  ← edit this
-│       ├── dialog_list.json         # swiftDialog progress list structure
-│       └── com.acme.mdm.migration.plist  # LaunchDaemon — starts migration on install
-├── pkg/
-│   ├── postinstall                  # PKG post-install script: keychain + permissions + daemon
-│   └── limpeza_final.sh             # Self-destruct: removes all artifacts after migration
+│       └── dialog_list.json         # swiftDialog progress list structure
 └── docs/
     ├── TECHNICAL_GUIDE.md           # Full technical reference for IT admins
     └── USER_GUIDE.md                # End-user guide
@@ -92,6 +95,33 @@ mac-mdm-migration/
 ---
 
 ## Configuration
+
+### 0. Add images to the user portal
+
+The `html/novidades.html` page has slots for screenshots and screen recordings that illustrate each change to end users. The image tags are **commented out by default** — add your own files and uncomment the lines.
+
+**1.** Create the folder `html/images/` and place your files there:
+
+| File | Content |
+|---|---|
+| `images/login_sso.png` (or `.gif`) | Screenshot of the Jamf Connect login screen |
+| `images/request_admin.mov` (or `.gif`) | Screen recording showing how to request admin access |
+| `images/usb_block_message.png` | Screenshot of the USB blocked alert |
+| `images/wallpaper.png` | Screenshot of the corporate wallpaper |
+
+**2.** In `novidades.html`, uncomment the corresponding line in each card and update the `src` to match your filename. Example:
+
+```html
+<!-- before -->
+<!-- <img src="./images/login_sso.gif" alt="New login screen" onclick="showModal(this)"> -->
+
+<!-- after -->
+<img src="./images/login_sso.png" alt="New login screen" onclick="showModal(this)">
+```
+
+> Images are optional — each card displays its text content correctly even without a visual.
+
+---
 
 ### 1. Set your company name
 
@@ -137,7 +167,7 @@ security add-generic-password \
   /Library/Keychains/System.keychain
 ```
 
-> The service name (`MDMMigrationService`) and account (`IntuneAuth`) are configured in `remover_intune.sh` via the `KEYCHAIN_SERVICE` and `KEYCHAIN_ACCOUNT` variables. Change them if needed.
+> The service name (`MDMMigrationService`) and account (`IntuneAuth`) are configured in `remove_intune.sh` via the `KEYCHAIN_SERVICE` and `KEYCHAIN_ACCOUNT` variables. Change them if needed.
 
 > ⚠️ Never commit secrets to the repository.
 
@@ -148,7 +178,7 @@ security add-generic-password \
 The script must be run as root. In production, deploy it via a **Jamf Policy**, **Apple Remote Desktop**, or an MDM-managed package:
 
 ```bash
-sudo bash "/Library/Application Support/ACME MDM Migration/bin/migracao_principal.sh"
+sudo bash "/Library/Application Support/ACME MDM Migration/bin/main.sh"
 ```
 
 ### Exit codes
@@ -166,31 +196,31 @@ sudo bash "/Library/Application Support/ACME MDM Migration/bin/migracao_principa
 ## Execution Flow
 
 ```
-migracao_principal.sh
+main.sh
 │
-├── [Step 1] validacao_pre_migracao.sh
+├── [Step 1] validate.sh
 │     ├── exit 0  → Already in Jamf ──────────────────► post-migration → done
 │     ├── exit 10 → On Intune       → full migration flow
 │     ├── exit 20 → No MDM          → skip removal, enroll in Jamf
 │     └── exit 1  → Error           → abort
 │
-├── [Step 2] instalar_dependencias.sh
+├── [Step 2] install_dependencies.sh
 │     └── Downloads swiftDialog from GitHub Releases
 │         Verifies PKG signature (Team ID: PWA5E9TQ59)
 │
-├── [Step 3] remover_intune.sh  (only if exit 10)
+├── [Step 3] remove_intune.sh  (only if exit 10)
 │     ├── OAuth 2.0 → Microsoft Graph API
 │     ├── Finds device by serial number
 │     ├── POST /managedDevices/{id}/retire
 │     └── Monitors MDM profile removal (loop until confirmed)
-│         └── limpar_certificados_ms.sh
+│         └── clean_certificates.sh
 │               └── Removes MS-ORGANIZATION-ACCESS from user keychain
 │
-├── [Step 4] instalar_jamf.sh
+├── [Step 4] install_jamf.sh
 │     ├── profiles renew -type enrollment
 │     └── Monitors enrollment (20 attempts × 30s = up to 10 min)
 │
-└── [Step 5] pos_migracao.sh
+└── [Step 5] post_migration.sh
       ├── jamf recon
       ├── Temporary file cleanup
       ├── Log rotation (max 10 MB / 7 days)
@@ -203,7 +233,7 @@ migracao_principal.sh
 
 ### Changing the MDM enrollment wait time
 
-In `instalar_jamf.sh`, adjust the `checks` and `interval` variables:
+In `install_jamf.sh`, adjust the `checks` and `interval` variables:
 
 ```bash
 local checks=20    # number of attempts
@@ -212,11 +242,11 @@ local interval=30  # seconds between attempts (total: 10 min)
 
 ### Using a different notification channel
 
-The `notificar_teams.sh` script sends Microsoft Teams Adaptive Cards. To use a different notification system, replace the `send_notification()` function with your preferred method (Slack, webhook, email, etc.).
+The `notify_teams.sh` script sends Microsoft Teams Adaptive Cards. To use a different notification system, replace the `send_notification()` function with your preferred method (Slack, webhook, email, etc.).
 
 ### Customizing the user-facing portal
 
-Edit the HTML files in `html/` to match your company branding, logo, and messaging. The pages are loaded by swiftDialog via the `--infobuttonaction` parameter in `migracao_principal.sh`.
+Edit the HTML files in `html/` to match your company branding, logo, and messaging. The pages are loaded by swiftDialog via the `--infobuttonaction` parameter in `main.sh`.
 
 ### State file location
 
@@ -244,9 +274,9 @@ The tool is distributed as a macOS **PKG** built with **Jamf Composer**. The PKG
 
 | File | Role |
 |---|---|
-| `resources/com.acme.mdm.migration.plist` | LaunchDaemon — starts `migracao_principal.sh` as root on install |
+| `resources/com.acme.mdm.migration.plist` | LaunchDaemon — starts `main.sh` as root on install |
 | `pkg/postinstall` | PKG post-install script — sets permissions, writes secret to keychain, loads daemon |
-| `pkg/limpeza_final.sh` | Self-destruct — removes the LaunchDaemon and migration folder after the process completes |
+| `pkg/cleanup.sh` | Self-destruct — removes the LaunchDaemon and migration folder after the process completes |
 
 > For the full step-by-step build and deploy instructions, see the [Technical Guide — Packaging section](docs/TECHNICAL_GUIDE.md#packaging--building-the-pkg-with-jamf-composer).
 

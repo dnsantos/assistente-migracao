@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.acme.mdm-migration</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/bin/bash</string>
+            <string>/Library/Application Support/ACME MDM Migration/bin/main.sh</string>
+        </array>
+
+        <!-- Run automatically when loaded (i.e. right after pkg install) -->
+        <key>RunAtLoad</key>
+        <true/>
+
+        <!-- Must run as root -->
+        <key>UserName</key>
+        <string>root</string>
+
+        <!-- stdout / stderr go to separate files for easier debugging -->
+        <key>StandardOutPath</key>
+        <string>/var/log/acme-mdm-migration.out.log</string>
+
+        <key>StandardErrorPath</key>
+        <string>/var/log/acme-mdm-migration.err.log</string>
+    </dict>
+</plist>
