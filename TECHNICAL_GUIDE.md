@@ -39,9 +39,18 @@ The entry point is always `main.sh`. It detects the current Mac state and runs o
 | Execution context | Must run as **root** (Jamf Policy, ARD, or equivalent) |
 | Apple Business Manager | Mac must be registered in ABM |
 | Jamf PreStage | Mac must be assigned to a PreStage Enrollment |
-| Azure AD App | App Registration with `DeviceManagementManagedDevices.ReadWrite.All` |
+| Azure AD App | App Registration with the permissions listed below |
 | Network | Access to `login.microsoftonline.com`, `graph.microsoft.com`, `api.github.com`, and your Jamf server |
 | Client Secret | Provisioned in System Keychain **before** execution |
+
+### Azure AD App Registration — required permissions
+
+The App Registration needs exactly **2 Microsoft Graph application permissions**, both requiring admin consent:
+
+| Permission | Type | Why |
+|---|---|---|
+| `DeviceManagementManagedDevices.ReadWrite.All` | Application | Search for the device by serial number via `GET /managedDevices` |
+| `DeviceManagementManagedDevices.PrivilegedOperations.All` | Application | Send the retire command via `POST /managedDevices/{id}/retire` |
 
 ---
 
@@ -228,15 +237,37 @@ The state file is written and updated throughout the migration:
 
 **`migration_status` values:**
 
-| Value | Set by | Meaning |
+| Value | Set by | Resume behavior |
 |---|---|---|
-| `already_in_jamf` | validacao | Mac was already in Jamf at start |
-| `needs_migration` | validacao | Intune detected, migration required |
-| `no_mdm_enroll_jamf` | validacao | No MDM — will enroll directly |
-| `unknown_mdm` | validacao | Unrecognized MDM — requires manual intervention |
-| `intune_removed` | remover_intune | Intune successfully retired |
-| `jamf_enrolled` | instalar_jamf | Jamf enrollment confirmed |
-| `completed` | pos_migracao | Post-migration finalized successfully |
+| `already_in_jamf` | `validate.sh` | Runs post-migration only |
+| `needs_migration` | `validate.sh` | Starts from Step 1 |
+| `no_mdm_enroll_jamf` | `validate.sh` | Starts from Step 1 |
+| `unknown_mdm` | `validate.sh` | Aborts — manual intervention required |
+| `intune_removed` | `remove_intune.sh` | **Resumes at Step 4** on next run |
+| `jamf_enrolled` | `install_jamf.sh` | **Resumes at Step 5** on next run |
+| `completed` | `post_migration.sh` | Exits immediately — nothing to do |
+
+> The `migration_status` field is the resume checkpoint. `main.sh` reads it on every start (including after an unexpected restart) and skips already-completed steps.
+
+### Resume after unexpected restart
+
+If the Mac restarts mid-migration (power loss, crash), the LaunchDaemon (`RunAtLoad = true`) re-launches `main.sh` automatically. The script reads `migration_status` and resumes:
+
+```
+Mac restarts during Step 3 (Intune removal)
+        │
+        ▼
+LaunchDaemon fires main.sh
+        │
+        ▼
+main.sh reads migration_state.json
+  └── migration_status = "intune_removed"
+        │
+        ▼
+Skips Steps 1–3 → resumes at Step 4 (enroll Jamf)
+```
+
+**Key detail:** `remove_intune.sh` writes `intune_removed` **before** entering the MDM removal monitoring loop. This means even if the Mac loses power while waiting for the MDM profile to disappear, the resume will correctly skip the Graph API retire call and go straight to Jamf enrollment on the next boot.
 
 ---
 

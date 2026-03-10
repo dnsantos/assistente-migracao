@@ -199,6 +199,12 @@ sudo bash "/Library/Application Support/ACME MDM Migration/bin/main.sh"
 ```
 main.sh
 │
+├── Resume check (reads migration_state.json on every start)
+│     ├── completed      → exit immediately, nothing to do
+│     ├── jamf_enrolled  → skip Steps 1–4, resume at Step 5
+│     ├── intune_removed → skip Steps 1–3, resume at Step 4
+│     └── empty / needs_migration → full flow below
+│
 ├── [Step 1] validate.sh
 │     ├── exit 0  → Already in Jamf ──────────────────► post-migration → done
 │     ├── exit 10 → On Intune       → full migration flow
@@ -208,14 +214,16 @@ main.sh
 ├── [Step 2] install_dependencies.sh
 │     └── Downloads swiftDialog from GitHub Releases
 │         Verifies PKG signature (Team ID: PWA5E9TQ59)
+│         Skips if installed version already meets minimum (v2.3.0)
 │
 ├── [Step 3] remove_intune.sh  (only if exit 10)
 │     ├── OAuth 2.0 → Microsoft Graph API
 │     ├── Finds device by serial number
 │     ├── POST /managedDevices/{id}/retire
-│     └── Monitors MDM profile removal (loop until confirmed)
-│         └── clean_certificates.sh
-│               └── Removes MS-ORGANIZATION-ACCESS from user keychain
+│     ├── Writes migration_status = "intune_removed" ← resume point
+│     ├── Monitors MDM profile removal (timeout: 600s, token auto-refresh)
+│     └── clean_certificates.sh
+│           └── Removes MS-ORGANIZATION-ACCESS from user keychain
 │
 ├── [Step 4] install_jamf.sh
 │     ├── profiles renew -type enrollment
@@ -227,6 +235,18 @@ main.sh
       ├── Log rotation (max 10 MB / 7 days)
       └── Schedules self-removal of migration folder
 ```
+
+### Resume after unexpected restart
+
+If the Mac restarts mid-migration (power loss, forced reboot), the LaunchDaemon starts `main.sh` again automatically. The script reads `migration_status` from `migration_state.json` and resumes from the correct step:
+
+| `migration_status` | Behavior on restart |
+|---|---|
+| _(empty or file missing)_ | Starts from Step 1 |
+| `needs_migration` | Starts from Step 1 |
+| `intune_removed` | **Skips to Step 4** — Intune already removed |
+| `jamf_enrolled` | **Skips to Step 5** — runs post-migration only |
+| `completed` | Exits immediately — nothing to do |
 
 ---
 
@@ -258,14 +278,15 @@ The migration state is written to:
 
 Possible `migration_status` values:
 
-| Value | Description |
-|---|---|
-| `already_in_jamf` | Mac was already in Jamf at start |
-| `needs_migration` | Intune detected, migration required |
-| `intune_removed` | Intune removed successfully |
-| `jamf_enrolled` | Enrolled in Jamf successfully |
-| `completed` | Post-migration finalized |
-| `unknown_mdm` | Unrecognized MDM — manual action required |
+| Value | Description | Resume behavior |
+|---|---|---|
+| `already_in_jamf` | Mac was already in Jamf at start | Runs post-migration only |
+| `needs_migration` | Intune detected, migration required | Starts from Step 1 |
+| `no_mdm_enroll_jamf` | No MDM detected, will enroll directly | Starts from Step 1 |
+| `intune_removed` | Intune removed successfully | **Resumes at Step 4** |
+| `jamf_enrolled` | Enrolled in Jamf successfully | **Resumes at Step 5** |
+| `completed` | Post-migration finalized | Exits immediately |
+| `unknown_mdm` | Unrecognized MDM — manual action required | Aborts |
 
 ---
 
